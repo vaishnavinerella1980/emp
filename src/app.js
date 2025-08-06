@@ -1,0 +1,100 @@
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+
+const { connectDatabase } = require('./config/database');
+const { PORT, CORS_ORIGIN } = require('./config/environment');
+const rateLimiter = require('./middleware/rateLimiter');
+const errorHandler = require('./middleware/errorHandler');
+const { notFound } = require('./middleware/errorHandler');
+
+// Import routes
+const authRoutes = require('./routes/authRoutes');
+const employeeRoutes = require('./routes/employeeRoutes');
+const attendanceRoutes = require('./routes/attendanceRoutes');
+const movementRoutes = require('./routes/movementRoutes');
+const locationRoutes = require('./routes/locationRoutes');
+
+class Application {
+  constructor() {
+    this.app = express();
+    this.setupMiddleware();
+    this.setupRoutes();
+    this.setupErrorHandling();
+  }
+
+  setupMiddleware() {
+    // Security middleware
+    this.app.use(helmet());
+    this.app.use(compression());
+    
+    // Rate limiting
+    this.app.use(rateLimiter);
+
+    // CORS configuration
+    this.app.use(cors({
+      origin: CORS_ORIGIN,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+      allowedHeaders: ['Content-Type', 'Authorization']
+    }));
+
+    // Body parsing
+    this.app.use(express.json({ limit: '10mb' }));
+    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  }
+
+  setupRoutes() {
+    // Health check endpoints
+    const healthResponse = {
+      success: true,
+      message: 'API is healthy',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      version: '1.0.0'
+    };
+
+    this.app.get('/health', (req, res) => {
+      res.json(healthResponse);
+    });
+
+    this.app.get('/api/health', (req, res) => {
+      res.json(healthResponse);
+    });
+
+    // API routes
+    this.app.use('/api/auth', authRoutes);
+    this.app.use('/api/employees', employeeRoutes);
+    this.app.use('/api/attendance', attendanceRoutes);
+    this.app.use('/api/movements', movementRoutes);
+    this.app.use('/api/location', locationRoutes);
+  }
+
+  setupErrorHandling() {
+    this.app.use(notFound);
+    this.app.use(errorHandler);
+  }
+
+  async start() {
+    try {
+      await connectDatabase();
+      console.log('✅ Database connected successfully');
+
+      this.app.listen(PORT, '0.0.0.0', () => {
+        console.log(`🚀 Server running on port ${process.env.PORT}`);
+        console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
+      });
+    } catch (error) {
+      console.error('❌ Failed to start server:', error);
+      process.exit(1);
+    }
+  }
+}
+
+// Start application
+if (require.main === module) {
+  new Application().start();
+}
+
+module.exports = Application;

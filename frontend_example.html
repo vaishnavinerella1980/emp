@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Clock-In Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007bff; }
+        .error { border-left-color: #dc3545; background: #f8d7da; }
+        .success { border-left-color: #28a745; background: #d4edda; }
+        input { padding: 8px; margin: 5px; width: 200px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Employee Clock-In API Test</h1>
+        
+        <div>
+            <h3>1. Login First</h3>
+            <input type="email" id="email" placeholder="Email" value="test@example.com">
+            <input type="password" id="password" placeholder="Password" value="password123">
+            <button onclick="login()">Login</button>
+        </div>
+
+        <div>
+            <h3>2. Clock Operations</h3>
+            <button onclick="checkClockStatus()">Check Clock Status</button>
+            <button onclick="validateLocation()">Validate Location</button>
+            <button onclick="clockIn()">Clock In</button>
+            <button onclick="clockOut()">Clock Out</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000';
+        let authToken = '';
+
+        function addResult(title, data, isError = false) {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${isError ? 'error' : 'success'}`;
+            resultDiv.innerHTML = `
+                <h4>${title}</h4>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            resultsDiv.appendChild(resultDiv);
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
+
+        async function login() {
+            try {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    authToken = data.token;
+                    addResult('Login Success', data);
+                } else {
+                    addResult('Login Failed', data, true);
+                }
+            } catch (error) {
+                addResult('Login Error', { error: error.message }, true);
+            }
+        }
+
+        async function checkClockStatus() {
+            try {
+                if (!authToken) {
+                    addResult('Error', { message: 'Please login first' }, true);
+                    return;
+                }
+
+                const response = await fetch(`${API_BASE}/api/clock-status`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const data = await response.json();
+                addResult('Clock Status', data);
+            } catch (error) {
+                addResult('Clock Status Error', { error: error.message }, true);
+            }
+        }
+
+        async function validateLocation() {
+            try {
+                if (!authToken) {
+                    addResult('Error', { message: 'Please login first' }, true);
+                    return;
+                }
+
+                // Get current location
+                navigator.geolocation.getCurrentPosition(async (position) => {
+                    const { latitude, longitude } = position.coords;
+
+                    const response = await fetch(`${API_BASE}/api/validate-location`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: JSON.stringify({ latitude, longitude })
+                    });
+
+                    const data = await response.json();
+                    addResult('Location Validation', data);
+                }, (error) => {
+                    addResult('Location Error', { error: error.message }, true);
+                });
+            } catch (error) {
+                addResult('Validate Location Error', { error: error.message }, true);
+            }
+        }
+
+        async function clockIn() {
+            try {
+                if (!authToken) {
+                    addResult('Error', { message: 'Please login first' }, true);
+                    return;
+                }
+
+                // Get current location
+                navigator.geolocation.getCurrentPosition(async (position) => {
+                    const { latitude, longitude, accuracy } = position.coords;
+
+                    const response = await fetch(`${API_BASE}/api/clock-in`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: JSON.stringify({
+                            latitude,
+                            longitude,
+                            accuracy,
+                            address: 'Current Location',
+                            timestamp: new Date().toISOString(),
+                            device_info: {
+                                battery_level: 85,
+                                is_mock_location: false
+                            }
+                        })
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        addResult('Clock-In Success', data);
+                    } else {
+                        addResult('Clock-In Failed', data, true);
+                    }
+                }, (error) => {
+                    addResult('Location Error for Clock-In', { error: error.message }, true);
+                }, {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 60000
+                });
+            } catch (error) {
+                addResult('Clock-In Error', { error: error.message }, true);
+            }
+        }
+
+        async function clockOut() {
+            try {
+                if (!authToken) {
+                    addResult('Error', { message: 'Please login first' }, true);
+                    return;
+                }
+
+                // Get current location
+                navigator.geolocation.getCurrentPosition(async (position) => {
+                    const { latitude, longitude, accuracy } = position.coords;
+
+                    const response = await fetch(`${API_BASE}/api/clock-out`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: JSON.stringify({
+                            latitude,
+                            longitude,
+                            accuracy,
+                            address: 'Current Location',
+                            timestamp: new Date().toISOString(),
+                            device_info: {
+                                battery_level: 75,
+                                is_mock_location: false
+                            }
+                        })
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        addResult('Clock-Out Success', data);
+                    } else {
+                        addResult('Clock-Out Failed', data, true);
+                    }
+                }, (error) => {
+                    addResult('Location Error for Clock-Out', { error: error.message }, true);
+                });
+            } catch (error) {
+                addResult('Clock-Out Error', { error: error.message }, true);
+            }
+        }
+    </script>
+</body>
+</html>

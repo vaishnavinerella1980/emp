@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Clock In/Out System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+        .login-section, .clock-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .clock-in-btn {
+            background-color: #28a745;
+        }
+        .clock-in-btn:hover {
+            background-color: #218838;
+        }
+        .clock-out-btn {
+            background-color: #dc3545;
+        }
+        .clock-out-btn:hover {
+            background-color: #c82333;
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .hidden {
+            display: none;
+        }
+        .employee-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .clock-status {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .clocked-in {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .clocked-out {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🕐 Employee Clock In/Out System</h1>
+        </div>
+
+        <!-- Login Section -->
+        <div id="loginSection" class="login-section">
+            <h2>Login</h2>
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" value="test@example.com" placeholder="Enter your email">
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" value="password123" placeholder="Enter your password">
+            </div>
+            <button onclick="login()">Login</button>
+        </div>
+
+        <!-- Employee Info Section -->
+        <div id="employeeSection" class="hidden">
+            <div class="employee-info">
+                <h3>Welcome, <span id="employeeName"></span>!</h3>
+                <p><strong>Email:</strong> <span id="employeeEmail"></span></p>
+                <p><strong>Department:</strong> <span id="employeeDepartment"></span></p>
+                <p><strong>Position:</strong> <span id="employeePosition"></span></p>
+            </div>
+        </div>
+
+        <!-- Clock Section -->
+        <div id="clockSection" class="clock-section hidden">
+            <h2>Clock In/Out</h2>
+            <div id="clockStatus" class="clock-status"></div>
+            
+            <div style="text-align: center;">
+                <button id="clockInBtn" class="clock-in-btn" onclick="clockIn()">
+                    🕐 Clock In
+                </button>
+                <button id="clockOutBtn" class="clock-out-btn" onclick="clockOut()">
+                    🕐 Clock Out
+                </button>
+                <button onclick="checkStatus()">📊 Check Status</button>
+                <button onclick="logout()">🚪 Logout</button>
+            </div>
+        </div>
+
+        <!-- Status Messages -->
+        <div id="statusMessages"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000';
+        let authToken = null;
+        let currentEmployee = null;
+
+        // Utility function to show messages
+        function showMessage(message, type = 'info') {
+            const statusDiv = document.getElementById('statusMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `status ${type}`;
+            messageDiv.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            statusDiv.appendChild(messageDiv);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.parentNode.removeChild(messageDiv);
+                }
+            }, 5000);
+            
+            // Scroll to bottom
+            statusDiv.scrollTop = statusDiv.scrollHeight;
+        }
+
+        // Get current location
+        function getCurrentLocation() {
+            return new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    reject(new Error('Geolocation is not supported by this browser'));
+                    return;
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        resolve({
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            accuracy: position.coords.accuracy
+                        });
+                    },
+                    (error) => {
+                        reject(new Error(`Location error: ${error.message}`));
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 60000
+                    }
+                );
+            });
+        }
+
+        // Login function
+        async function login() {
+            try {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+
+                if (!email || !password) {
+                    showMessage('Please enter both email and password', 'error');
+                    return;
+                }
+
+                showMessage('Logging in...', 'info');
+
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    authToken = data.token;
+                    currentEmployee = data.employee;
+                    
+                    // Update UI
+                    document.getElementById('loginSection').classList.add('hidden');
+                    document.getElementById('employeeSection').classList.remove('hidden');
+                    document.getElementById('clockSection').classList.remove('hidden');
+                    
+                    // Fill employee info
+                    document.getElementById('employeeName').textContent = currentEmployee.name;
+                    document.getElementById('employeeEmail').textContent = currentEmployee.email;
+                    document.getElementById('employeeDepartment').textContent = currentEmployee.department || 'N/A';
+                    document.getElementById('employeePosition').textContent = currentEmployee.position || 'N/A';
+                    
+                    showMessage(`Welcome ${currentEmployee.name}! Login successful.`, 'success');
+                    
+                    // Check current status
+                    checkStatus();
+                } else {
+                    showMessage(`Login failed: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`Login error: ${error.message}`, 'error');
+            }
+        }
+
+        // Clock In function
+        async function clockIn() {
+            try {
+                if (!authToken) {
+                    showMessage('Please login first', 'error');
+                    return;
+                }
+
+                showMessage('Getting your location for clock-in...', 'info');
+                
+                // Get current location
+                const location = await getCurrentLocation();
+                showMessage(`Location obtained: ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`, 'info');
+
+                const requestBody = {
+                    latitude: location.latitude,
+                    longitude: location.longitude,
+                    accuracy: location.accuracy,
+                    address: 'Current Location',
+                    timestamp: new Date().toISOString(),
+                    device_info: {
+                        battery_level: 85,
+                        is_mock_location: false
+                    }
+                };
+
+                showMessage('Sending clock-in request...', 'info');
+
+                const response = await fetch(`${API_BASE}/api/clock-in`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage(`✅ Clock-in successful! Time: ${new Date(data.clock_in_time).toLocaleString()}`, 'success');
+                    updateClockStatus(true);
+                } else {
+                    showMessage(`❌ Clock-in failed: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`❌ Clock-in error: ${error.message}`, 'error');
+            }
+        }
+
+        // Clock Out function
+        async function clockOut() {
+            try {
+                if (!authToken) {
+                    showMessage('Please login first', 'error');
+                    return;
+                }
+
+                showMessage('Getting your location for clock-out...', 'info');
+                
+                // Get current location
+                const location = await getCurrentLocation();
+                showMessage(`Location obtained: ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`, 'info');
+
+                const requestBody = {
+                    latitude: location.latitude,
+                    longitude: location.longitude,
+                    accuracy: location.accuracy,
+                    address: 'Current Location',
+                    timestamp: new Date().toISOString(),
+                    device_info: {
+                        battery_level: 85,
+                        is_mock_location: false
+                    }
+                };
+
+                showMessage('Sending clock-out request...', 'info');
+
+                const response = await fetch(`${API_BASE}/api/clock-out`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    const workDuration = data.work_duration ? data.work_duration.formatted : 'N/A';
+                    showMessage(`✅ Clock-out successful! Time: ${new Date(data.clock_out_time).toLocaleString()}, Work Duration: ${workDuration}`, 'success');
+                    updateClockStatus(false);
+                } else {
+                    showMessage(`❌ Clock-out failed: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`❌ Clock-out error: ${error.message}`, 'error');
+            }
+        }
+
+        // Check Status function
+        async function checkStatus() {
+            try {
+                if (!authToken) {
+                    showMessage('Please login first', 'error');
+                    return;
+                }
+
+                const response = await fetch(`${API_BASE}/api/clock-status`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    const isClocked = data.is_clocked_in;
+                    updateClockStatus(isClocked);
+                    
+                    if (isClocked && data.work_duration) {
+                        showMessage(`📊 Status: Clocked In. Work Duration: ${data.work_duration.hours}h ${data.work_duration.minutes}m`, 'info');
+                    } else {
+                        showMessage(`📊 Status: ${isClocked ? 'Clocked In' : 'Clocked Out'}`, 'info');
+                    }
+                } else {
+                    showMessage(`Status check failed: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`Status check error: ${error.message}`, 'error');
+            }
+        }
+
+        // Update clock status UI
+        function updateClockStatus(isClockedIn) {
+            const statusDiv = document.getElementById('clockStatus');
+            const clockInBtn = document.getElementById('clockInBtn');
+            const clockOutBtn = document.getElementById('clockOutBtn');
+
+            if (isClockedIn) {
+                statusDiv.textContent = '🟢 You are CLOCKED IN';
+                statusDiv.className = 'clock-status clocked-in';
+                clockInBtn.disabled = true;
+                clockOutBtn.disabled = false;
+            } else {
+                statusDiv.textContent = '🔴 You are CLOCKED OUT';
+                statusDiv.className = 'clock-status clocked-out';
+                clockInBtn.disabled = false;
+                clockOutBtn.disabled = true;
+            }
+        }
+
+        // Logout function
+        function logout() {
+            authToken = null;
+            currentEmployee = null;
+            
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('employeeSection').classList.add('hidden');
+            document.getElementById('clockSection').classList.add('hidden');
+            
+            // Clear status messages
+            document.getElementById('statusMessages').innerHTML = '';
+            
+            showMessage('Logged out successfully', 'info');
+        }
+
+        // Initialize the app
+        window.onload = function() {
+            showMessage('Employee Clock System loaded. Please login to continue.', 'info');
+        };
+    </script>
+</body>
+</html>
