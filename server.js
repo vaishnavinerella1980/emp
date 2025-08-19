@@ -48,8 +48,19 @@ class Application {
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
   }
 
-
   setupRoutes() {
+    // Root route
+    this.app.get("/", (req, res) => {
+      res.send(`
+        <h1>🚀 Employee Tracking API</h1>
+        <p>Welcome! The server is running.</p>
+        <ul>
+          <li>API Base: <a href="/api">/api</a></li>
+          <li>Health Check: <a href="/health">/health</a></li>
+        </ul>
+      `);
+    });
+
     // Health check
     this.app.get('/health', (req, res) => {
       res.json({
@@ -59,18 +70,6 @@ class Application {
         environment: process.env.NODE_ENV || 'development'
       });
     });
-
-    app.get("/", (req, res) => {
-  res.send(`
-    <h1>🚀 Employee Tracking API</h1>
-    <p>Welcome! The server is running.</p>
-    <ul>
-      <li>API Base: <a href="/api">/api</a></li>
-      <li>Health Check: <a href="/health">/health</a></li>
-    </ul>
-  `);
-});
-
 
     // API routes
     this.app.use('/api/auth', authRoutes);
@@ -136,8 +135,8 @@ class Application {
 }
 
 // Start application
-const app = new Application();
-app.start();
+const application = new Application();
+application.start();
 
 // Handle graceful shutdown
 process.on('SIGINT', async () => {
