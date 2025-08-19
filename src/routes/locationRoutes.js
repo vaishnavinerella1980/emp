@@ -1,5 +1,5 @@
 const express = require('express');
-const LocationController = require('../controllers/loactionController');
+const LocationController = require('../controllers/locationController');
 const AuthMiddleware = require('../middleware/auth');
 const ValidationMiddleware = require('../middleware/validation');
 

@@ -1,53 +1,176 @@
 const Employee = require('../models/Employee');
+const { ApiError } = require('../middleware/errorHandler');
 
 class EmployeeRepository {
-  async findById(id) {
-    return await Employee.findOne({ id, is_active: true });
+  async create(employeeData) {
+    try {
+      console.log('Creating employee in database...');
+      console.log('Employee data to be saved:', employeeData); // Debugging log
+      const employee = new Employee(employeeData);
+      const savedEmployee = await employee.save();
+      console.log('Employee saved successfully');
+      return savedEmployee;
+    } catch (error) {
+      console.error('Error creating employee:', error);
+      if (error.code === 11000) {
+        // Handle duplicate email
+        if (error.keyPattern?.email) {
+          throw new ApiError(409, 'Email already exists');
+        }
+        if (error.keyPattern?.id) {
+          throw new ApiError(409, 'Employee ID already exists');
+        }
+      }
+      throw new ApiError(500, `Failed to create employee: ${error.message}`);
+    }
   }
 
   async findByEmail(email) {
-    return await Employee.findOne({ email: email.toLowerCase(), is_active: true });
+    try {
+      console.log('Finding employee by email:', email);
+      const employee = await Employee.findOne({ 
+        email: email.toLowerCase().trim() 
+      });
+      console.log('Employee found by email:', !!employee);
+      return employee;
+    } catch (error) {
+      console.error('Error finding employee by email:', error);
+      throw new ApiError(500, `Failed to find employee: ${error.message}`);
+    }
   }
 
-  async create(employeeData) {
-    const employee = new Employee(employeeData);
-    return await employee.save();
+  async findById(employeeId) {
+    try {
+      console.log('Finding employee by ID:', employeeId);
+      const employee = await Employee.findOne({ id: employeeId });
+      console.log('Employee found by ID:', !!employee);
+      return employee;
+    } catch (error) {
+      console.error('Error finding employee by ID:', error);
+      throw new ApiError(500, `Failed to find employee: ${error.message}`);
+    }
   }
 
-  async update(id, updateData) {
-    return await Employee.findOneAndUpdate(
-      { id },
-      { ...updateData, updated_at: new Date().toISOString() },
-      { new: true }
-    );
+  async update(employeeId, updateData) {
+    try {
+      console.log('Updating employee:', employeeId);
+      console.log('Update data:', updateData);
+
+      const employee = await Employee.findOneAndUpdate(
+        { id: employeeId },
+        { 
+          $set: {
+            ...updateData,
+            updated_at: new Date().toISOString()
+          }
+        },
+        { new: true, runValidators: true }
+      );
+
+      if (!employee) {
+        throw new ApiError(404, 'Employee not found');
+      }
+
+      console.log('Employee updated successfully');
+      return employee;
+    } catch (error) {
+      console.error('Error updating employee:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      if (error.code === 11000) {
+        throw new ApiError(409, 'Email already exists');
+      }
+      throw new ApiError(500, `Failed to update employee: ${error.message}`);
+    }
   }
 
   async findAll(filters = {}, options = {}) {
-    const { page = 1, limit = 10, sortBy = 'created_at', sortOrder = 'desc' } = options;
-    const skip = (page - 1) * limit;
-    
-    const query = Employee.find({ ...filters, is_active: true });
-    const total = await Employee.countDocuments({ ...filters, is_active: true });
-    
-    const employees = await query
-      .sort({ [sortBy]: sortOrder === 'desc' ? -1 : 1 })
-      .skip(skip)
-      .limit(limit)
-      .select('-password');
+    try {
+      const {
+        page = 1,
+        limit = 50,
+        sort = { created_at: -1 }
+      } = options;
 
-    return { employees, total, page, limit };
+      const skip = (page - 1) * limit;
+
+      const [data, total] = await Promise.all([
+        Employee.find(filters)
+          .sort(sort)
+          .skip(skip)
+          .limit(limit)
+          .select('-password'), // Exclude password from results
+        Employee.countDocuments(filters)
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+      
+      return {
+        data,
+        pagination: {
+          current_page: page,
+          total_pages: totalPages,
+          total_records: total,
+          records_per_page: limit,
+          has_next_page: page < totalPages,
+          has_prev_page: page > 1
+        }
+      };
+    } catch (error) {
+      console.error('Error finding employees:', error);
+      throw new ApiError(500, `Failed to find employees: ${error.message}`);
+    }
   }
 
-  async softDelete(id) {
-    return await Employee.findOneAndUpdate(
-      { id },
-      { is_active: false, updated_at: new Date().toISOString() },
-      { new: true }
-    );
+  async delete(employeeId) {
+    try {
+      console.log('Deleting employee:', employeeId);
+      const result = await Employee.deleteOne({ id: employeeId });
+      
+      if (result.deletedCount === 0) {
+        throw new ApiError(404, 'Employee not found');
+      }
+
+      console.log('Employee deleted successfully');
+      return true;
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(500, `Failed to delete employee: ${error.message}`);
+    }
   }
 
-  async count(filters = {}) {
-    return await Employee.countDocuments({ ...filters, is_active: true });
+  async updatePassword(employeeId, hashedPassword) {
+    try {
+      console.log('Updating employee password:', employeeId);
+      
+      const employee = await Employee.findOneAndUpdate(
+        { id: employeeId },
+        { 
+          $set: {
+            password: hashedPassword,
+            updated_at: new Date().toISOString()
+          }
+        },
+        { new: true }
+      );
+
+      if (!employee) {
+        throw new ApiError(404, 'Employee not found');
+      }
+
+      console.log('Employee password updated successfully');
+      return employee;
+    } catch (error) {
+      console.error('Error updating employee password:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(500, `Failed to update password: ${error.message}`);
+    }
   }
 }
 

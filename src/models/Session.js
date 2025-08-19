@@ -17,10 +17,13 @@ const sessionSchema = new mongoose.Schema({
     required: true
   },
   expires_at: {
-    type: Date,
-    default: Date.now,
-    expires: 86400 // 24 hours
+    type: String,
+    required: true,
+    index: true
   }
 });
+
+// Auto-remove expired sessions
+sessionSchema.index({ expires_at: 1 }, { expireAfterSeconds: 0 });
 
 module.exports = mongoose.model('Session', sessionSchema);

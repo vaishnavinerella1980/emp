@@ -1,193 +1,173 @@
 const AttendanceRepository = require('../repositories/attendanceRepository');
-const LocationRepository = require('../repositories/locationRepository');
+const EmployeeRepository = require('../repositories/employeeRepository');
 const { ApiError } = require('../middleware/errorHandler');
 const { generateId } = require('../utils/crypto');
-const LocationUtils = require('../utils/location');
-const { OFFICE_LATITUDE, OFFICE_LONGITUDE, OFFICE_RADIUS } = require('../config/environment');
-const { MESSAGES } = require('../constants/messages');
 
 class AttendanceService {
   constructor() {
     this.attendanceRepository = new AttendanceRepository();
-    this.locationRepository = new LocationRepository();
+    this.employeeRepository = new EmployeeRepository();
   }
 
-  async clockIn(clockInData) {
-    const { employeeId, latitude, longitude, address, accuracy, timestamp, device_info } = clockInData;
+  async clockIn({ employeeId, latitude, longitude, address }) {
+    console.log('=== ATTENDANCE SERVICE CLOCK IN ===');
+    console.log('Employee ID:', employeeId);
 
-    // Check if employee already has an active attendance record for today
-    const today = new Date();
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
-
-    const existingRecord = await this.attendanceRepository.findActiveRecordForToday(employeeId, startOfDay, endOfDay);
-    if (existingRecord) {
-      throw new ApiError(409, MESSAGES.ATTENDANCE.ALREADY_CLOCKED_IN);
+    // Check if employee exists
+    const employee = await this.employeeRepository.findById(employeeId);
+    if (!employee) {
+      throw new ApiError(404, 'Employee not found');
     }
 
-    // Validate office location if configured
-    const officeValidation = LocationUtils.validateOfficeLocation(latitude, longitude, {
-      latitude: OFFICE_LATITUDE,
-      longitude: OFFICE_LONGITUDE,
-      radius: OFFICE_RADIUS
-    });
+    // Check if employee already has an active attendance record
+    const activeAttendance = await this.attendanceRepository.findActiveByEmployeeId(employeeId);
+    if (activeAttendance) {
+      // Return the existing active attendance instead of throwing error
+      return {
+        attendance: this.formatAttendanceResponse(activeAttendance),
+        message: 'Employee is already clocked in',
+        alreadyClockedIn: true
+      };
+    }
 
-    const clockInTime = timestamp ? new Date(timestamp) : new Date();
-    
-    // Create attendance record
+    // Create new attendance record
+    const now = new Date();
+    const today = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+
     const attendanceData = {
       id: generateId(),
       employee_id: employeeId,
-      login_time: clockInTime.toISOString(),
-      login_latitude: latitude,
-      login_longitude: longitude,
-      login_address: address || '',
+      employee_name: employee.name,
+      clock_in_time: now.toISOString(),
+      clock_out_time: null,
+      clock_in_location: `${latitude},${longitude}`,
+      clock_out_location: null,
+      clock_in_address: address,
+      clock_out_address: null,
+      total_hours: null,
+      date: today,
       status: 'active',
-      reason: 'Regular Work'
+      is_active: true,
+      created_at: now.toISOString(),
+      updated_at: now.toISOString()
     };
 
-    const record = await this.attendanceRepository.create(attendanceData);
+    console.log('Creating attendance record:', attendanceData);
 
-    // Create location update
-    const locationData = {
-      id: generateId(),
-      employee_id: employeeId,
-      timestamp: clockInTime.toISOString(),
-      latitude,
-      longitude,
-      accuracy: accuracy || null,
-      address: address || '',
-      battery_level: device_info?.battery_level || null,
-      is_mock_location: device_info?.is_mock_location || false
-    };
-
-    await this.locationRepository.create(locationData);
-
-    return {
-      record: record.toObject(),
-      location: {
-        latitude,
-        longitude,
-        address: address || '',
-        accuracy: accuracy || null
-      },
-      office_validation: officeValidation,
-      clock_in_time: record.login_time
-    };
+    const attendance = await this.attendanceRepository.create(attendanceData);
+    
+    console.log('Attendance record created successfully');
+    return this.formatAttendanceResponse(attendance);
   }
 
-  async clockOut(clockOutData) {
-    const { employeeId, latitude, longitude, address, accuracy, timestamp, device_info } = clockOutData;
+  async clockOut({ attendanceId, latitude, longitude, address }) {
+    console.log('=== ATTENDANCE SERVICE CLOCK OUT ===');
+    console.log('Attendance ID:', attendanceId);
 
-    // Find active attendance record for today
-    const today = new Date();
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
-
-    const activeRecord = await this.attendanceRepository.findActiveRecordForToday(employeeId, startOfDay, endOfDay);
-    if (!activeRecord) {
-      throw new ApiError(404, MESSAGES.ATTENDANCE.NOT_CLOCKED_IN);
+    // Find the attendance record
+    const attendance = await this.attendanceRepository.findById(attendanceId);
+    if (!attendance) {
+      throw new ApiError(404, 'Attendance record not found');
     }
 
-    const clockOutTime = timestamp ? new Date(timestamp) : new Date();
-    
-    // Calculate work duration
-    const loginTime = new Date(activeRecord.login_time);
-    const workDurationMs = clockOutTime - loginTime;
-    const workDurationMinutes = Math.floor(workDurationMs / (1000 * 60));
+    if (!attendance.is_active) {
+      throw new ApiError(400, 'Attendance record is already clocked out');
+    }
+
+    // Calculate total hours
+    const clockInTime = new Date(attendance.clock_in_time);
+    const clockOutTime = new Date();
+    const totalHours = (clockOutTime - clockInTime) / (1000 * 60 * 60); // Convert to hours
 
     // Update attendance record
     const updateData = {
-      logout_time: clockOutTime.toISOString(),
-      logout_latitude: latitude,
-      logout_longitude: longitude,
-      logout_address: address || '',
+      clock_out_time: clockOutTime.toISOString(),
+      clock_out_location: `${latitude},${longitude}`,
+      clock_out_address: address,
+      total_hours: Math.round(totalHours * 100) / 100, // Round to 2 decimal places
       status: 'completed',
-      work_duration_minutes: workDurationMinutes
+      is_active: false,
+      updated_at: new Date().toISOString()
     };
 
-    const updatedRecord = await this.attendanceRepository.update(activeRecord.id, updateData);
+    console.log('Updating attendance with:', updateData);
 
-    // Create location update for clock-out
-    const locationData = {
-      id: generateId(),
-      employee_id: employeeId,
-      timestamp: clockOutTime.toISOString(),
-      latitude,
-      longitude,
-      accuracy: accuracy || null,
-      address: address || '',
-      battery_level: device_info?.battery_level || null,
-      is_mock_location: device_info?.is_mock_location || false
-    };
-
-    await this.locationRepository.create(locationData);
-
-    const workDurationHours = Math.floor(workDurationMinutes / 60);
-    const remainingMinutes = workDurationMinutes % 60;
-
-    return {
-      record: updatedRecord.toObject(),
-      location: {
-        latitude,
-        longitude,
-        address: address || '',
-        accuracy: accuracy || null
-      },
-      work_duration: {
-        hours: workDurationHours,
-        minutes: remainingMinutes,
-        total_minutes: workDurationMinutes,
-        formatted: `${workDurationHours}h ${remainingMinutes}m`
-      }
-    };
-  }
-
-  async getCurrentStatus(employeeId) {
-    const today = new Date();
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
-
-    const todayRecord = await this.attendanceRepository.findTodayRecord(employeeId, startOfDay, endOfDay);
+    const updatedAttendance = await this.attendanceRepository.update(attendanceId, updateData);
     
-    if (!todayRecord) {
-      return {
-        is_clocked_in: false,
-        message: 'Not clocked in today',
-        record: null,
-        work_duration: null
-      };
+    console.log('Attendance record updated successfully');
+    return this.formatAttendanceResponse(updatedAttendance);
+  }
+
+  async getCurrentAttendance(employeeId) {
+    console.log('=== GET CURRENT ATTENDANCE ===');
+    console.log('Employee ID:', employeeId);
+
+    const activeAttendance = await this.attendanceRepository.findActiveByEmployeeId(employeeId);
+    
+    if (activeAttendance) {
+      console.log('Active attendance found:', activeAttendance.id);
+      return this.formatAttendanceResponse(activeAttendance);
+    } else {
+      console.log('No active attendance found');
+      return null;
+    }
+  }
+
+  async getAttendanceHistory({ employeeId, startDate, endDate, page = 1, limit = 50 }) {
+    console.log('=== GET ATTENDANCE HISTORY ===');
+    console.log('Employee ID:', employeeId);
+    console.log('Date range:', { startDate, endDate });
+
+    // Build query filters
+    const filters = { employee_id: employeeId };
+    
+    if (startDate || endDate) {
+      filters.date = {};
+      if (startDate) {
+        filters.date.$gte = startDate.toISOString().split('T')[0];
+      }
+      if (endDate) {
+        filters.date.$lte = endDate.toISOString().split('T')[0];
+      }
     }
 
-    const isActive = todayRecord.status === 'active';
-    let workDuration = null;
+    const result = await this.attendanceRepository.findWithPagination(filters, {
+      page,
+      limit,
+      sort: { created_at: -1 } // Most recent first
+    });
 
-    if (todayRecord.login_time) {
-      const loginTime = new Date(todayRecord.login_time);
-      const currentTime = todayRecord.logout_time ? new Date(todayRecord.logout_time) : new Date();
-      const workDurationMs = currentTime - loginTime;
-      const totalMinutes = Math.floor(workDurationMs / (1000 * 60));
-      const hours = Math.floor(totalMinutes / 60);
-      const minutes = totalMinutes % 60;
-
-      workDuration = {
-        hours,
-        minutes,
-        total_minutes: totalMinutes,
-        formatted: `${hours}h ${minutes}m`
-      };
-    }
+    console.log('Found attendance records:', result.data?.length || 0);
 
     return {
-      is_clocked_in: isActive,
-      record: todayRecord.toObject(),
-      work_duration: workDuration,
-      status: todayRecord.status
+      attendance: result.data?.map(record => this.formatAttendanceResponse(record)) || [],
+      pagination: result.pagination
     };
   }
 
-  async getAttendanceHistory(employeeId, options = {}) {
-    return await this.attendanceRepository.findByEmployeeId(employeeId, options);
+  formatAttendanceResponse(attendance) {
+    if (!attendance) return null;
+
+    // Convert to plain object if it's a mongoose document
+    const plainAttendance = attendance.toObject ? attendance.toObject() : attendance;
+
+    return {
+      id: plainAttendance.id,
+      employeeId: plainAttendance.employee_id,
+      employeeName: plainAttendance.employee_name,
+      clockInTime: plainAttendance.clock_in_time,
+      clockOutTime: plainAttendance.clock_out_time,
+      totalHours: plainAttendance.total_hours,
+      clockInLocation: plainAttendance.clock_in_location,
+      clockOutLocation: plainAttendance.clock_out_location,
+      clockInAddress: plainAttendance.clock_in_address,
+      clockOutAddress: plainAttendance.clock_out_address,
+      status: plainAttendance.status,
+      date: plainAttendance.date,
+      isActive: plainAttendance.is_active,
+      createdAt: plainAttendance.created_at,
+      updatedAt: plainAttendance.updated_at
+    };
   }
 }
 

@@ -1,69 +1,273 @@
-const { body, param, query, validationResult } = require('express-validator');
 const { ApiError } = require('./errorHandler');
-const { VALIDATION_RULES } = require('../config/constants');
 
 class ValidationMiddleware {
-  static handleValidationErrors = (req, res, next) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      const errorMessages = errors.array().map(error => error.msg);
-      return next(new ApiError(400, errorMessages.join(', ')));
+  static validateEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
+  static validatePassword(password) {
+    // At least 6 characters
+    return password && password.length >= 6;
+  }
+
+  static validateRegistration(req, res, next) {
+    const { name, email, password } = req.body;
+
+    // Check required fields
+    if (!name || !email || !password) {
+      throw new ApiError(400, 'Name, email, and password are required');
     }
+
+    // Validate name
+    if (name.trim().length < 2) {
+      throw new ApiError(400, 'Name must be at least 2 characters long');
+    }
+
+    // Validate email
+    if (!ValidationMiddleware.validateEmail(email)) {
+      throw new ApiError(400, 'Please provide a valid email address');
+    }
+
+    // Validate password
+    if (!ValidationMiddleware.validatePassword(password)) {
+      throw new ApiError(400, 'Password must be at least 6 characters long');
+    }
+
     next();
-  };
+  }
 
-  static validateRegistration = [
-    body('name')
-      .trim()
-      .isLength({ min: VALIDATION_RULES.NAME_MIN_LENGTH, max: VALIDATION_RULES.NAME_MAX_LENGTH })
-      .withMessage(`Name must be between ${VALIDATION_RULES.NAME_MIN_LENGTH}-${VALIDATION_RULES.NAME_MAX_LENGTH} characters`),
-    body('email')
-      .isEmail()
-      .normalizeEmail()
-      .withMessage('Valid email is required'),
-    body('password')
-      .isLength({ min: VALIDATION_RULES.PASSWORD_MIN_LENGTH })
-      .withMessage(`Password must be at least ${VALIDATION_RULES.PASSWORD_MIN_LENGTH} characters`),
-    body('confirm_password')
-      .custom((value, { req }) => {
-        if (value !== req.body.password) {
-          throw new Error('Passwords do not match');
-        }
-        return true;
-      }),
-    this.handleValidationErrors
-  ];
+  static validateLogin(req, res, next) {
+    const { email, password } = req.body;
 
-  static validateLogin = [
-    body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-    body('password').notEmpty().withMessage('Password is required'),
-    this.handleValidationErrors
-  ];
+    // Check required fields
+    if (!email || !password) {
+      throw new ApiError(400, 'Email and password are required');
+    }
 
-  static validateLocation = [
-    body('latitude').isFloat({ min: -90, max: 90 }).withMessage('Invalid latitude'),
-    body('longitude').isFloat({ min: -180, max: 180 }).withMessage('Invalid longitude'),
-    this.handleValidationErrors
-  ];
+    // Validate email
+    if (!ValidationMiddleware.validateEmail(email)) {
+      throw new ApiError(400, 'Please provide a valid email address');
+    }
 
-  static validateEmployeeId = [
-    param('employeeId').notEmpty().withMessage('Employee ID is required'),
-    this.handleValidationErrors
-  ];
+    next();
+  }
 
-  static validateMovement = [
-    body('latitude').isFloat({ min: -90, max: 90 }).withMessage('Invalid latitude'),
-    body('longitude').isFloat({ min: -180, max: 180 }).withMessage('Invalid longitude'),
-    body('reason').optional().trim().isLength({ min: 1, max: 255 }).withMessage('Reason must be 1-255 characters'),
-    body('estimated_minutes').optional().isInt({ min: 0, max: 1440 }).withMessage('Estimated minutes must be 0-1440'),
-    this.handleValidationErrors
-  ];
+  static validateClockIn(req, res, next) {
+    const { latitude, longitude, address } = req.body;
 
-  static validatePagination = [
-    query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
-    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1-100'),
-    this.handleValidationErrors
-  ];
+    // Employee ID comes from authenticated user, not request body
+    // No need to validate employeeId from body
+
+    if (latitude === undefined || latitude === null) {
+      throw new ApiError(400, 'Latitude is required');
+    }
+
+    if (longitude === undefined || longitude === null) {
+      throw new ApiError(400, 'Longitude is required');
+    }
+
+    if (!address || address.trim().length === 0) {
+      throw new ApiError(400, 'Address is required');
+    }
+
+    // Validate coordinate ranges
+    if (latitude < -90 || latitude > 90) {
+      throw new ApiError(400, 'Latitude must be between -90 and 90');
+    }
+
+    if (longitude < -180 || longitude > 180) {
+      throw new ApiError(400, 'Longitude must be between -180 and 180');
+    }
+
+    next();
+  }
+
+  static validateClockOut(req, res, next) {
+    const { attendanceId, latitude, longitude, address } = req.body;
+
+    // Check required fields
+    if (!attendanceId) {
+      throw new ApiError(400, 'Attendance ID is required');
+    }
+
+    if (latitude === undefined || latitude === null) {
+      throw new ApiError(400, 'Latitude is required');
+    }
+
+    if (longitude === undefined || longitude === null) {
+      throw new ApiError(400, 'Longitude is required');
+    }
+
+    if (!address || address.trim().length === 0) {
+      throw new ApiError(400, 'Address is required');
+    }
+
+    // Validate coordinate ranges
+    if (latitude < -90 || latitude > 90) {
+      throw new ApiError(400, 'Latitude must be between -90 and 90');
+    }
+
+    if (longitude < -180 || longitude > 180) {
+      throw new ApiError(400, 'Longitude must be between -180 and 180');
+    }
+
+    next();
+  }
+
+  static validateUpdateEmployee(req, res, next) {
+    const allowedFields = [
+      'name', 'phone', 'department', 'position', 
+      'address', 'emergency_contact', 'profile_image'
+    ];
+    
+    const updateData = {};
+    let hasValidUpdates = false;
+
+    // Only allow specific fields to be updated
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+        hasValidUpdates = true;
+      }
+    }
+
+    if (!hasValidUpdates) {
+      throw new ApiError(400, 'No valid fields provided for update');
+    }
+
+    // Validate name if provided
+    if (updateData.name && updateData.name.trim().length < 2) {
+      throw new ApiError(400, 'Name must be at least 2 characters long');
+    }
+
+    // Add the cleaned update data to request
+    req.validatedData = updateData;
+    next();
+  }
+
+  static validateChangePassword(req, res, next) {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      throw new ApiError(400, 'Current password and new password are required');
+    }
+
+    if (!ValidationMiddleware.validatePassword(newPassword)) {
+      throw new ApiError(400, 'New password must be at least 6 characters long');
+    }
+
+    if (currentPassword === newPassword) {
+      throw new ApiError(400, 'New password must be different from current password');
+    }
+
+    next();
+  }
+
+  static validateMovement(req, res, next) {
+    const { latitude, longitude, reason, estimatedMinutes, address } = req.body;
+
+    // Employee ID comes from authenticated user, not request body
+    // No need to validate employeeId from body
+
+    if (!reason || reason.trim().length === 0) {
+      throw new ApiError(400, 'Reason is required');
+    }
+
+    if (!estimatedMinutes || estimatedMinutes < 1) {
+      throw new ApiError(400, 'Estimated minutes must be at least 1');
+    }
+
+    if (latitude === undefined || latitude === null) {
+      throw new ApiError(400, 'Latitude is required');
+    }
+
+    if (longitude === undefined || longitude === null) {
+      throw new ApiError(400, 'Longitude is required');
+    }
+
+    if (!address || address.trim().length === 0) {
+      throw new ApiError(400, 'Address is required');
+    }
+
+    // Validate coordinate ranges
+    if (latitude < -90 || latitude > 90) {
+      throw new ApiError(400, 'Latitude must be between -90 and 90');
+    }
+
+    if (longitude < -180 || longitude > 180) {
+      throw new ApiError(400, 'Longitude must be between -180 and 180');
+    }
+
+    next();
+  }
+
+  static validatePagination(req, res, next) {
+    const { page, limit } = req.query;
+
+    // Set default values if not provided
+    req.query.page = page ? parseInt(page, 10) : 1;
+    req.query.limit = limit ? parseInt(limit, 10) : 10;
+
+    // Validate page number
+    if (req.query.page < 1) {
+      throw new ApiError(400, 'Page number must be greater than 0');
+    }
+
+    // Validate limit
+    if (req.query.limit < 1 || req.query.limit > 100) {
+      throw new ApiError(400, 'Limit must be between 1 and 100');
+    }
+
+    next();
+  }
+
+  static validateEmployeeId(req, res, next) {
+    const { id } = req.params;
+
+    // Check if ID is provided
+    if (!id) {
+      throw new ApiError(400, 'Employee ID is required');
+    }
+
+    // Check if ID is a valid number (assuming numeric IDs)
+    const employeeId = parseInt(id, 10);
+    if (isNaN(employeeId) || employeeId < 1) {
+      throw new ApiError(400, 'Employee ID must be a valid positive number');
+    }
+
+    // Add parsed ID to request for use in controller
+    req.params.id = employeeId;
+    next();
+  }
+
+  static validateLocation(req, res, next) {
+    const { latitude, longitude, address } = req.body;
+
+    // Check required fields
+    if (latitude === undefined || latitude === null) {
+      throw new ApiError(400, 'Latitude is required');
+    }
+
+    if (longitude === undefined || longitude === null) {
+      throw new ApiError(400, 'Longitude is required');
+    }
+
+    if (!address || address.trim().length === 0) {
+      throw new ApiError(400, 'Address is required');
+    }
+
+    // Validate coordinate ranges
+    if (latitude < -90 || latitude > 90) {
+      throw new ApiError(400, 'Latitude must be between -90 and 90');
+    }
+
+    if (longitude < -180 || longitude > 180) {
+      throw new ApiError(400, 'Longitude must be between -180 and 180');
+    }
+
+    next();
+  }
 }
 
 module.exports = ValidationMiddleware;

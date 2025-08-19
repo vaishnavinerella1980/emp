@@ -66,6 +66,20 @@ class MovementController {
       )
     );
   });
+
+  getMovementById = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const employeeId = req.user.employeeId;
+    
+    const movement = await this.movementService.getMovementById(id, employeeId);
+    
+    res.json(
+      ApiResponse.success(
+        { movement },
+        'Movement retrieved successfully'
+      )
+    );
+  });
 }
 
 module.exports = MovementController;

@@ -1,31 +1,35 @@
 const express = require('express');
-const AttendanceController = require('../controllers/attendenceController');
+const AttendanceController = require('../controllers/attendanceController');
 const AuthMiddleware = require('../middleware/auth');
 const ValidationMiddleware = require('../middleware/validation');
+const { asyncHandler } = require('../utils/response');
 
 const router = express.Router();
 const attendanceController = new AttendanceController();
 
-// Apply authentication to all routes
+// All attendance routes require authentication
 router.use(AuthMiddleware.authenticate);
 
-// Clock operations
+// Clock in
 router.post('/clock-in',
-  ValidationMiddleware.validateLocation,
-  attendanceController.clockIn
+  ValidationMiddleware.validateClockIn,
+  asyncHandler(attendanceController.clockIn)
 );
 
+// Clock out
 router.post('/clock-out',
-  ValidationMiddleware.validateLocation,
-  attendanceController.clockOut
+  ValidationMiddleware.validateClockOut,
+  asyncHandler(attendanceController.clockOut)
 );
 
-// Status and history
-router.get('/status', attendanceController.getStatus);
+// Get current attendance for an employee
+router.get('/current/:employeeId',
+  asyncHandler(attendanceController.getCurrentAttendance)
+);
 
-router.get('/history',
-  ValidationMiddleware.validatePagination,
-  attendanceController.getHistory
+// Get attendance history for an employee
+router.get('/history/:employeeId',
+  asyncHandler(attendanceController.getAttendanceHistory)
 );
 
 module.exports = router;

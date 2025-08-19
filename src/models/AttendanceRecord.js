@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const attendanceRecordSchema = new mongoose.Schema({
+const attendanceSchema = new mongoose.Schema({
   id: {
     type: String,
     required: true,
@@ -12,58 +12,67 @@ const attendanceRecordSchema = new mongoose.Schema({
     required: true,
     index: true
   },
-  login_time: {
+  employee_name: {
     type: String,
     required: true
   },
-  logout_time: {
+  clock_in_time: {
     type: String,
-    default: null
-  },
-  login_latitude: {
-    type: Number,
     required: true
   },
-  login_longitude: {
-    type: Number,
+  clock_out_time: {
+    type: String,
+    default: null
+  },
+  clock_in_location: {
+    type: String,
     required: true
   },
-  logout_latitude: {
+  clock_out_location: {
+    type: String,
+    default: null
+  },
+  clock_in_address: {
+    type: String,
+    required: true
+  },
+  clock_out_address: {
+    type: String,
+    default: null
+  },
+  total_hours: {
     type: Number,
     default: null
   },
-  logout_longitude: {
-    type: Number,
-    default: null
-  },
-  login_address: {
+  date: {
     type: String,
-    default: ''
-  },
-  logout_address: {
-    type: String,
-    default: null
+    required: true,
+    index: true
   },
   status: {
     type: String,
     enum: ['active', 'completed', 'cancelled'],
-    default: 'active'
+    default: 'active',
+    index: true
   },
-  reason: {
-    type: String,
-    default: 'Regular Work'
-  },
-  work_duration_minutes: {
-    type: Number,
-    default: 0
+  is_active: {
+    type: Boolean,
+    default: true,
+    index: true
   },
   created_at: {
-    type: Date,
-    default: Date.now
+    type: String,
+    required: true
+  },
+  updated_at: {
+    type: String,
+    required: true
   }
 });
 
-// Index for efficient queries
-attendanceRecordSchema.index({ employee_id: 1, login_time: -1 });
+// Compound indexes for better query performance
+attendanceSchema.index({ employee_id: 1, date: -1 });
+attendanceSchema.index({ employee_id: 1, is_active: 1 });
+attendanceSchema.index({ employee_id: 1, status: 1 });
 
-module.exports = mongoose.model('AttendanceRecord', attendanceRecordSchema);
+module.exports = mongoose.model('Attendance', attendanceSchema);

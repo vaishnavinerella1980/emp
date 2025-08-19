@@ -89,6 +89,20 @@ class MovementService {
     const movements = await this.movementRepository.findActiveMovements(employeeId);
     return movements.map(m => m.toObject());
   }
+
+  async getMovementById(movementId, employeeId) {
+    const movement = await this.movementRepository.findById(movementId);
+    
+    if (!movement) {
+      throw new ApiError(404, MESSAGES.MOVEMENT.NOT_FOUND);
+    }
+
+    if (movement.employee_id !== employeeId) {
+      throw new ApiError(403, MESSAGES.AUTH.ACCESS_DENIED);
+    }
+
+    return movement.toObject();
+  }
 }
 
 module.exports = MovementService;

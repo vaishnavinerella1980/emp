@@ -42,10 +42,11 @@ class AuthMiddleware {
   };
 
   static checkOwnership = (req, res, next) => {
-    const { employeeId } = req.params;
+    const { id } = req.params;
     const requestingEmployeeId = req.user.employeeId;
 
-    if (employeeId !== requestingEmployeeId) {
+    // Convert to string for comparison since params are strings
+    if (id.toString() !== requestingEmployeeId.toString()) {
       return next(new ApiError(403, MESSAGES.AUTH.ACCESS_DENIED));
     }
 

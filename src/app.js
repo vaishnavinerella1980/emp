@@ -69,6 +69,35 @@ class Application {
     this.app.use('/api/attendance', attendanceRoutes);
     this.app.use('/api/movements', movementRoutes);
     this.app.use('/api/location', locationRoutes);
+
+    // Direct route aliases for backward compatibility with test files
+    const LocationController = require('./controllers/locationController');
+    const AttendanceController = require('./controllers/attendanceController');
+    const AuthMiddleware = require('./middleware/auth');
+    const ValidationMiddleware = require('./middleware/validation');
+    
+    const locationController = new LocationController();
+    const attendanceController = new AttendanceController();
+
+    // Direct validate-location endpoint (alias for /api/location/validate)
+    this.app.post('/api/validate-location',
+      AuthMiddleware.authenticate,
+      ValidationMiddleware.validateLocation,
+      locationController.validateLocation
+    );
+
+    // Direct clock-in endpoint (alias for /api/attendance/clock-in)
+    this.app.post('/api/clock-in',
+      AuthMiddleware.authenticate,
+      ValidationMiddleware.validateClockIn,
+      attendanceController.clockIn
+    );
+
+    // Direct clock-status endpoint (new endpoint)
+    this.app.get('/api/clock-status',
+      AuthMiddleware.authenticate,
+      attendanceController.getClockStatus
+    );
   }
 
   setupErrorHandling() {

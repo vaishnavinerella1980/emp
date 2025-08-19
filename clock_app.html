@@ -323,56 +323,77 @@
             }
         }
 
-        // Clock Out function
-        async function clockOut() {
-            try {
-                if (!authToken) {
-                    showMessage('Please login first', 'error');
-                    return;
-                }
-
-                showMessage('Getting your location for clock-out...', 'info');
-                
-                // Get current location
-                const location = await getCurrentLocation();
-                showMessage(`Location obtained: ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`, 'info');
-
-                const requestBody = {
-                    latitude: location.latitude,
-                    longitude: location.longitude,
-                    accuracy: location.accuracy,
-                    address: 'Current Location',
-                    timestamp: new Date().toISOString(),
-                    device_info: {
-                        battery_level: 85,
-                        is_mock_location: false
-                    }
-                };
-
-                showMessage('Sending clock-out request...', 'info');
-
-                const response = await fetch(`${API_BASE}/api/clock-out`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    },
-                    body: JSON.stringify(requestBody)
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    const workDuration = data.work_duration ? data.work_duration.formatted : 'N/A';
-                    showMessage(`✅ Clock-out successful! Time: ${new Date(data.clock_out_time).toLocaleString()}, Work Duration: ${workDuration}`, 'success');
-                    updateClockStatus(false);
-                } else {
-                    showMessage(`❌ Clock-out failed: ${data.message}`, 'error');
-                }
-            } catch (error) {
-                showMessage(`❌ Clock-out error: ${error.message}`, 'error');
+    // Clock Out function
+    async function clockOut() {
+        try {
+            if (!authToken) {
+                showMessage('Please login first', 'error');
+                return;
             }
+
+            showMessage('Fetching current attendance record...', 'info');
+            
+            // First, get the current active attendance to get the attendance ID
+            const statusResponse = await fetch(`${API_BASE}/api/clock-status`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            });
+
+            const statusData = await statusResponse.json();
+            
+            if (!statusData.success || !statusData.is_clocked_in || !statusData.attendance) {
+                showMessage('❌ No active attendance record found. Please check your clock-in status.', 'error');
+                return;
+            }
+
+            const attendanceId = statusData.attendance.id;
+            showMessage(`Found active attendance record: ID ${attendanceId}`, 'info');
+
+            showMessage('Getting your location for clock-out...', 'info');
+            
+            // Get current location
+            const location = await getCurrentLocation();
+            showMessage(`Location obtained: ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`, 'info');
+
+            const requestBody = {
+                attendanceId: attendanceId,
+                latitude: location.latitude,
+                longitude: location.longitude,
+                accuracy: location.accuracy,
+                address: 'Current Location',
+                timestamp: new Date().toISOString(),
+                device_info: {
+                    battery_level: 85,
+                    is_mock_location: false
+                }
+            };
+
+            showMessage('Sending clock-out request...', 'info');
+
+            const response = await fetch(`${API_BASE}/api/clock-out`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                const workDuration = data.work_duration ? data.work_duration.formatted : 'N/A';
+                showMessage(`✅ Clock-out successful! Time: ${new Date(data.clock_out_time).toLocaleString()}, Work Duration: ${workDuration}`, 'success');
+                updateClockStatus(false);
+            } else {
+                showMessage(`❌ Clock-out failed: ${data.message}`, 'error');
+            }
+        } catch (error) {
+            showMessage(`❌ Clock-out error: ${error.message}`, 'error');
         }
+    }
 
         // Check Status function
         async function checkStatus() {
