@@ -11,7 +11,16 @@ router.use(AuthMiddleware.authenticate);
 
 // Profile routes
 router.get('/profile', employeeController.getProfile);
-router.put('/profile', employeeController.updateProfile);
+router.put(
+  '/profile',
+  ValidationMiddleware.validateUpdateEmployee,
+  employeeController.updateProfile
+);
+router.patch(
+  '/profile/password',
+  ValidationMiddleware.validateChangePassword,
+  employeeController.changePassword
+);
 
 // Employee management routes (could be restricted to admin/manager roles)
 router.get('/', 
@@ -27,6 +36,7 @@ router.get('/:id',
 router.put('/:id',
   ValidationMiddleware.validateEmployeeId,
   AuthMiddleware.checkOwnership,
+  ValidationMiddleware.validateUpdateEmployee,
   employeeController.updateEmployee
 );
 

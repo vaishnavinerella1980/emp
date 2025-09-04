@@ -143,6 +143,58 @@ class AuthService {
     await this.sessionRepository.deleteByToken(token);
   }
 
+  async changePassword(employeeId, currentPassword, newPassword) {
+    console.log('=== CHANGE PASSWORD DEBUG START ===');
+    console.log('Employee ID:', employeeId);
+    console.log('Current password length:', currentPassword.length);
+    console.log('New password length:', newPassword.length);
+
+    // Find employee
+    const employee = await this.employeeRepository.findById(employeeId);
+    console.log('Employee found:', !!employee);
+    
+    if (!employee) {
+      console.log('ERROR: Employee not found');
+      throw new ApiError(404, MESSAGES.AUTH.EMPLOYEE_NOT_FOUND);
+    }
+
+    console.log('Found employee:', {
+      id: employee.id,
+      email: employee.email,
+      hasPassword: !!employee.password,
+      passwordLength: employee.password ? employee.password.length : 0,
+      passwordStart: employee.password ? employee.password.substring(0, 10) : 'N/A'
+    });
+
+    // Verify current password
+    console.log('Verifying current password...');
+    console.log('Input current password:', currentPassword);
+    console.log('Stored password hash starts with:', employee.password.substring(0, 10));
+    
+    const isCurrentPasswordValid = await comparePassword(currentPassword, employee.password);
+    console.log('Current password validation result:', isCurrentPasswordValid);
+    
+    if (!isCurrentPasswordValid) {
+      console.log('ERROR: Current password is incorrect');
+      console.log('Input current password length:', currentPassword.length);
+      console.log('Stored hash length:', employee.password.length);
+      throw new ApiError(401, MESSAGES.AUTH.INVALID_CURRENT_PASSWORD);
+    }
+
+    console.log('Current password validation successful');
+
+    // Hash new password
+    const hashedNewPassword = await hashPassword(newPassword);
+    console.log('New password hashed successfully. Hash length:', hashedNewPassword.length);
+    console.log('New hash starts with:', hashedNewPassword.substring(0, 10));
+
+    // Update password
+    await this.employeeRepository.updatePassword(employeeId, hashedNewPassword);
+    console.log('Password updated successfully in database');
+
+    console.log('=== CHANGE PASSWORD DEBUG END ===');
+  }
+
   sanitizeEmployee(employee) {
     const { password, ...sanitized } = employee;
     return sanitized;

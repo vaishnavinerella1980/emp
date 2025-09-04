@@ -44,8 +44,14 @@ class AuthMiddleware {
   static checkOwnership = (req, res, next) => {
     const { id } = req.params;
     const requestingEmployeeId = req.user.employeeId;
+    const role = req.user.role;
 
-    // Convert to string for comparison since params are strings
+    // Admins and managers can access any employee record
+    if (role === 'admin' || role === 'manager') {
+      return next();
+    }
+
+    // Employees can only access their own record
     if (id.toString() !== requestingEmployeeId.toString()) {
       return next(new ApiError(403, MESSAGES.AUTH.ACCESS_DENIED));
     }

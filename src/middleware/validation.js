@@ -223,21 +223,23 @@ class ValidationMiddleware {
   }
 
   static validateEmployeeId(req, res, next) {
-    const { id } = req.params;
+    let { id } = req.params;
 
-    // Check if ID is provided
-    if (!id) {
+    // Map special alias 'me' to the authenticated user's ID
+    if (id === 'me') {
+      if (!req.user?.employeeId) {
+        throw new ApiError(401, 'Access denied');
+      }
+      req.params.id = req.user.employeeId;
+      return next();
+    }
+
+    // Check if ID is provided and is a non-empty string
+    if (!id || typeof id !== 'string' || id.trim().length === 0) {
       throw new ApiError(400, 'Employee ID is required');
     }
 
-    // Check if ID is a valid number (assuming numeric IDs)
-    const employeeId = parseInt(id, 10);
-    if (isNaN(employeeId) || employeeId < 1) {
-      throw new ApiError(400, 'Employee ID must be a valid positive number');
-    }
-
-    // Add parsed ID to request for use in controller
-    req.params.id = employeeId;
+    req.params.id = id.trim();
     next();
   }
 
@@ -245,6 +247,34 @@ class ValidationMiddleware {
     const { latitude, longitude, address } = req.body;
 
     // Check required fields
+    if (latitude === undefined || latitude === null) {
+      throw new ApiError(400, 'Latitude is required');
+    }
+
+    if (longitude === undefined || longitude === null) {
+      throw new ApiError(400, 'Longitude is required');
+    }
+
+    if (!address || address.trim().length === 0) {
+      throw new ApiError(400, 'Address is required');
+    }
+
+    // Validate coordinate ranges
+    if (latitude < -90 || latitude > 90) {
+      throw new ApiError(400, 'Latitude must be between -90 and 90');
+    }
+
+    if (longitude < -180 || longitude > 180) {
+      throw new ApiError(400, 'Longitude must be between -180 and 180');
+    }
+
+    next();
+  }
+
+  static validateAutoClockOut(req, res, next) {
+    const { latitude, longitude, address } = req.body;
+
+    // For auto clock out, we don't need attendanceId as it will be auto-detected
     if (latitude === undefined || latitude === null) {
       throw new ApiError(400, 'Latitude is required');
     }

@@ -168,6 +168,78 @@ class AttendanceController {
     }
   }
 
+  async autoClockOut(req, res) {
+    try {
+      const { latitude, longitude, address } = req.body;
+      const employeeId = req.user.employeeId; // Get from authenticated user
+
+      console.log('=== AUTO CLOCK OUT CONTROLLER DEBUG ===');
+      console.log('Employee ID from auth:', employeeId);
+      console.log('Location:', { latitude, longitude, address });
+
+      // Find active attendance for this employee
+      const activeAttendance = await this.attendanceService.getCurrentAttendance(employeeId);
+      
+      if (!activeAttendance) {
+        throw new ApiError(404, 'No active attendance record found for clock out');
+      }
+
+      const attendance = await this.attendanceService.clockOut({
+        attendanceId: activeAttendance.id,
+        latitude,
+        longitude,
+        address
+      });
+
+      console.log('Auto clock out successful:', attendance);
+
+      res.json(
+        ApiResponse.success(
+          { 
+            attendance,
+            message: 'Successfully clocked out'
+          },
+          'Auto clock out successful'
+        )
+      );
+    } catch (error) {
+      console.error('Auto clock out controller error:', error);
+      throw error;
+    }
+  }
+
+  async forceClockOut(req, res) {
+    try {
+      const { attendanceId } = req.params;
+      const { latitude, longitude, address } = req.body;
+
+      console.log('=== FORCE CLOCK OUT CONTROLLER DEBUG ===');
+      console.log('Attendance ID:', attendanceId);
+
+      const attendance = await this.attendanceService.clockOut({
+        attendanceId,
+        latitude,
+        longitude,
+        address
+      });
+
+      console.log('Force clock out successful:', attendance);
+
+      res.json(
+        ApiResponse.success(
+          { 
+            attendance,
+            message: 'Successfully force clocked out'
+          },
+          'Force clock out successful'
+        )
+      );
+    } catch (error) {
+      console.error('Force clock out controller error:', error);
+      throw error;
+    }
+  }
+
   async getClockStatus(req, res) {
     try {
       const employeeId = req.user.employeeId; // Get from authenticated user

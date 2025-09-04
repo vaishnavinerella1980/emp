@@ -64,6 +64,7 @@ class Application {
     });
 
     // API routes
+    console.log('Registering auth routes...');
     this.app.use('/api/auth', authRoutes);
     this.app.use('/api/employees', employeeRoutes);
     this.app.use('/api/attendance', attendanceRoutes);

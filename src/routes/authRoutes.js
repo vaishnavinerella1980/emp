@@ -23,4 +23,9 @@ router.post('/logout',
   authController.logout
 );
 
+router.post('/change-password',
+  AuthMiddleware.authenticate,
+  authController.changePassword
+);
+
 module.exports = router;
