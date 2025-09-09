@@ -68,8 +68,10 @@ class AuthController {
 
   changePassword = asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = req.body;
-    const employeeId = req.employee.id;
+    // Fix: Get employeeId from req.user (set by auth middleware) and pass it to service
+    const employeeId = req.user.employeeId;
 
+    // Fix: Pass employeeId as first parameter
     await this.authService.changePassword(employeeId, currentPassword, newPassword);
 
     res.json(

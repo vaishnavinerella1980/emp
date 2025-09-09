@@ -23,8 +23,10 @@ router.post('/logout',
   authController.logout
 );
 
+// Fix: Remove :employeeId parameter since we get it from the token
 router.post('/change-password',
   AuthMiddleware.authenticate,
+  ValidationMiddleware.validateChangePassword, // Add validation if not present
   authController.changePassword
 );
 

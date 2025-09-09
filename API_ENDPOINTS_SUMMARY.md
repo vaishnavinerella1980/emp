@@ -8,6 +8,9 @@
 - **POST** `/api/auth/register` - Register new employee
 - **POST** `/api/auth/login` - Employee login  
 - **POST** `/api/auth/logout` - Employee logout (requires auth)
+#- **POST** `/api/auth/forgot-password` - Forgot password request( to be added later)
+#- **POST** `/api/auth/reset-password` - Reset password using OTP(to be added later)
+#- **POST** `/api/auth/change-password/emloyeeId` - Change password (requires auth) (to be added later)
 
 ## 👥 Employee Management APIs
 - **GET** `/api/employees/profile` - Get current user's profile (requires auth)
