@@ -23,12 +23,12 @@ class LocationController {
   getHistory = asyncHandler(async (req, res) => {
     const employeeId = req.user.employeeId;
     const { page = 1, limit = 100, startDate, endDate } = req.query;
-    
+
     const result = await this.locationService.getLocationHistory(
       employeeId,
       { page: parseInt(page), limit: parseInt(limit), startDate, endDate }
     );
-    
+
     res.json(
       ApiResponse.paginated(
         result.updates,

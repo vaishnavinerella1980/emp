@@ -24,8 +24,17 @@ class EmployeeController {
 
   // The following endpoints now use the service layer
   getAllEmployees = asyncHandler(async (req, res) => {
-    // Optional: implement later if needed
-    res.json(ApiResponse.success({ message: 'Employees listing to be implemented' }));
+    const { page = 1, limit = 10 } = req.query;
+    const result = await this.employeeService.getAllEmployees({ page: parseInt(page), limit: parseInt(limit) });
+    res.json(
+      ApiResponse.paginated(
+        result.data,
+        result.pagination.total_records,
+        parseInt(page),
+        parseInt(limit),
+        'Employees retrieved successfully'
+      )
+    );
   });
 
   getEmployee = asyncHandler(async (req, res) => {

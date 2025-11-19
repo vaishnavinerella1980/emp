@@ -30,4 +30,15 @@ router.post('/change-password',
   authController.changePassword
 );
 
+// Public routes for password reset
+router.post('/forgot-password',
+  ValidationMiddleware.validateForgotPassword,
+  authController.forgotPassword
+);
+
+router.post('/reset-password',
+  ValidationMiddleware.validateResetPassword,
+  authController.resetPassword
+);
+
 module.exports = router;

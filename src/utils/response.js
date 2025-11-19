@@ -18,6 +18,25 @@ class ApiResponse {
       timestamp: new Date().toISOString()
     };
   }
+
+  static paginated(data, total, page, limit, message = 'Data retrieved successfully') {
+    const totalPages = Math.ceil(total / limit);
+    return {
+      success: true,
+      statusCode: 200,
+      message,
+      data,
+      pagination: {
+        total_records: total,
+        total_pages: totalPages,
+        current_page: page,
+        records_per_page: limit,
+        has_next_page: page < totalPages,
+        has_prev_page: page > 1
+      },
+      timestamp: new Date().toISOString()
+    };
+  }
 }
 
 const asyncHandler = (fn) => {

@@ -8,8 +8,8 @@
 - **POST** `/api/auth/register` - Register new employee
 - **POST** `/api/auth/login` - Employee login  
 - **POST** `/api/auth/logout` - Employee logout (requires auth)
-#- **POST** `/api/auth/forgot-password` - Forgot password request( to be added later)
-#- **POST** `/api/auth/reset-password` - Reset password using OTP(to be added later)
+- **POST** `/api/auth/forgot-password` - Forgot password request( to be added later)
+- **POST** `/api/auth/reset-password` - Reset password using OTP(to be added later)
 #- **POST** `/api/auth/change-password/emloyeeId` - Change password (requires auth) (to be added later)
 
 ## 👥 Employee Management APIs
@@ -33,6 +33,7 @@
 - **GET** `/api/movements/active` - Get active movements (requires auth)
 - **GET** `/api/movements/:id` - Get specific movement by ID (requires auth)
 - **PUT** `/api/movements/:id` - Update specific movement (requires auth)
+- **POST** `/api/movements/:id/end` - End new movement record (requires auth)
 
 ## 📍 Location APIs
 - **POST** `/api/location/update` - Update employee location (requires auth)

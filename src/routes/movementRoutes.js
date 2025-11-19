@@ -6,34 +6,80 @@ const ValidationMiddleware = require('../middleware/validation');
 const router = express.Router();
 const movementController = new MovementController();
 
-// Apply authentication to all routes
+// Apply authentication to ALL movement routes
 router.use(AuthMiddleware.authenticate);
 
-// Movement operations
-router.post('/',
+/**
+ * CREATE MOVEMENT
+ * POST /api/movements
+ */
+router.post(
+  '/',
   ValidationMiddleware.validateMovement,
   movementController.createMovement
 );
 
-// Movement history and status (specific routes must come before parameterized routes)
-router.get('/history',
+/**
+ * END MOVEMENT BY ID
+ * POST /api/movements/:id/end
+ * Accepts body: { endTime, endLocation }
+ * (movementId NOT needed, controller auto-detects)
+ */
+router.post('/:id/end', movementController.endMovement);
+
+/**
+ * END ACTIVE MOVEMENT (AUTO-DETECT)
+ * POST /api/movements/end
+ * Accepts body: { endTime, endLocation }
+ */
+router.post('/end', movementController.endMovement);
+
+/**
+ * MOVEMENT HISTORY (Paginated)
+ * GET /api/movements/history
+ */
+router.get(
+  '/history',
   ValidationMiddleware.validatePagination,
   movementController.getHistory
 );
 
-// Alternative endpoint for current user movement history
-router.get('/history/current_user',
+/**
+ * CURRENT USER MOVEMENT HISTORY
+ * GET /api/movements/history/current_user
+ */
+router.get(
+  '/history/current_user',
   ValidationMiddleware.validatePagination,
   movementController.getHistory
 );
 
+/**
+ * ACTIVE MOVEMENTS
+ * GET /api/movements/active
+ */
 router.get('/active', movementController.getActiveMovements);
 
-// Parameterized routes (must come after specific routes)
+/**
+ * GET MOVEMENT BY ID
+ * GET /api/movements/:id
+ */
 router.get('/:id', movementController.getMovementById);
 
-router.put('/:id',
-  movementController.updateMovement
+/**
+ * COMPLETE MOVEMENT
+ * PATCH /api/movements/:id/end
+ */
+router.patch(
+  '/:id/end',
+  ValidationMiddleware.validateMovementCompletion,
+  movementController.completeMovement
 );
+
+/**
+ * UPDATE MOVEMENT
+ * PUT /api/movements/:id
+ */
+router.put('/:id', movementController.updateMovement);
 
 module.exports = router;

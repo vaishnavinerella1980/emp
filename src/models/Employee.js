@@ -57,6 +57,14 @@ const employeeSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  reset_token: {
+    type: String,
+    default: null
+  },
+  reset_token_expiry: {
+    type: Date,
+    default: null
+  },
   created_at: {
     type: String,
     required: true

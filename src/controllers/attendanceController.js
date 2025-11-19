@@ -153,13 +153,12 @@ class AttendanceController {
       console.log('Attendance history count:', result.attendance?.length || 0);
 
       res.json(
-        ApiResponse.success(
-          {
-            attendance: result.attendance,
-            pagination: result.pagination,
-            message: 'Attendance history retrieved'
-          },
-          'Attendance history retrieved'
+        ApiResponse.paginated(
+          result.attendance,
+          result.pagination.total_records,
+          parseInt(page),
+          parseInt(limit),
+          'Attendance history retrieved successfully'
         )
       );
     } catch (error) {
@@ -179,8 +178,9 @@ class AttendanceController {
 
       // Find active attendance for this employee
       const activeAttendance = await this.attendanceService.getCurrentAttendance(employeeId);
-      
+
       if (!activeAttendance) {
+        const ApiError = require('../utils/ApiError');
         throw new ApiError(404, 'No active attendance record found for clock out');
       }
 

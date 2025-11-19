@@ -8,7 +8,7 @@ class AuthMiddleware {
     try {
       const authHeader = req.headers.authorization;
       const token = authHeader?.split(' ')[1];
-
+    
       if (!token) {
         throw new ApiError(401, MESSAGES.AUTH.TOKEN_REQUIRED);
       }

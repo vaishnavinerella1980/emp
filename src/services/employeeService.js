@@ -54,10 +54,8 @@ class EmployeeService {
   async getAllEmployees(options = {}) {
     const result = await this.employeeRepository.findAll({}, options);
     return {
-      employees: result.employees.map(emp => this.sanitizeEmployee(emp.toObject())),
-      total: result.total,
-      page: result.page,
-      limit: result.limit
+      data: result.data.map(emp => this.sanitizeEmployee(emp.toObject())),
+      pagination: result.pagination
     };
   }
 

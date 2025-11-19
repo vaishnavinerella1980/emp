@@ -81,6 +81,32 @@ class AuthController {
       )
     );
   });
+
+  forgotPassword = asyncHandler(async (req, res) => {
+    const { email } = req.body;
+
+    const result = await this.authService.forgotPassword(email);
+
+    res.json(
+      ApiResponse.success(
+        result,
+        'Password reset request processed'
+      )
+    );
+  });
+
+  resetPassword = asyncHandler(async (req, res) => {
+    const { token, newPassword } = req.body;
+
+    await this.authService.resetPassword(token, newPassword);
+
+    res.json(
+      ApiResponse.success(
+        { message: 'Password has been reset successfully' },
+        'Password reset successful'
+      )
+    );
+  });
 }
 
 module.exports = AuthController;

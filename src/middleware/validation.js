@@ -165,7 +165,7 @@ class ValidationMiddleware {
   }
 
   static validateMovement(req, res, next) {
-    const { latitude, longitude, reason, estimatedMinutes, address } = req.body;
+    const { latitude, longitude, reason, estimated_minutes, address } = req.body;
 
     // Employee ID comes from authenticated user, not request body
     // No need to validate employeeId from body
@@ -174,7 +174,7 @@ class ValidationMiddleware {
       throw new ApiError(400, 'Reason is required');
     }
 
-    if (!estimatedMinutes || estimatedMinutes < 1) {
+    if (!estimated_minutes || estimated_minutes < 1) {
       throw new ApiError(400, 'Estimated minutes must be at least 1');
     }
 
@@ -197,6 +197,24 @@ class ValidationMiddleware {
 
     if (longitude < -180 || longitude > 180) {
       throw new ApiError(400, 'Longitude must be between -180 and 180');
+    }
+
+    next();
+  }
+  static validateMovementCompletion(req, res, next) {
+    const { return_time: returnTime, status } = req.body;
+
+    if (!returnTime) {
+      throw new ApiError(400, 'Return time is required');
+    }
+
+    const dateValue = new Date(returnTime);
+    if (Number.isNaN(dateValue.getTime())) {
+      throw new ApiError(400, 'Return time must be a valid ISO timestamp');
+    }
+
+    if (status && !['completed', 'cancelled'].includes(status)) {
+      throw new ApiError(400, 'Status must be either completed or cancelled');
     }
 
     next();
@@ -294,6 +312,38 @@ class ValidationMiddleware {
 
     if (longitude < -180 || longitude > 180) {
       throw new ApiError(400, 'Longitude must be between -180 and 180');
+    }
+
+    next();
+  }
+
+  static validateForgotPassword(req, res, next) {
+    const { email } = req.body;
+
+    if (!email) {
+      throw new ApiError(400, 'Email is required');
+    }
+
+    if (!ValidationMiddleware.validateEmail(email)) {
+      throw new ApiError(400, 'Please provide a valid email address');
+    }
+
+    next();
+  }
+
+  static validateResetPassword(req, res, next) {
+    const { token, newPassword } = req.body;
+
+    if (!token) {
+      throw new ApiError(400, 'Reset token is required');
+    }
+
+    if (!newPassword) {
+      throw new ApiError(400, 'New password is required');
+    }
+
+    if (!ValidationMiddleware.validatePassword(newPassword)) {
+      throw new ApiError(400, 'New password must be at least 6 characters long');
     }
 
     next();

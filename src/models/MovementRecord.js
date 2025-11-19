@@ -39,6 +39,7 @@ const movementRecordSchema = new mongoose.Schema({
   },
   address: {
     type: String,
+    required: false,
     default: ''
   },
   return_time: {

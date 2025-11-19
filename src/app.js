@@ -16,6 +16,10 @@ const attendanceRoutes = require('./routes/attendanceRoutes');
 const movementRoutes = require('./routes/movementRoutes');
 const locationRoutes = require('./routes/locationRoutes');
 
+/**
+ * Main Application Class
+ * Sets up Express server with middleware, routes, and error handling
+ */
 class Application {
   constructor() {
     this.app = express();
@@ -24,6 +28,14 @@ class Application {
     this.setupErrorHandling();
   }
 
+  /**
+   * Configure application middleware
+   * - Security (Helmet)
+   * - Compression
+   * - Rate limiting
+   * - CORS
+   * - Body parsing
+   */
   setupMiddleware() {
     // Security middleware
     this.app.use(helmet());
@@ -45,6 +57,20 @@ class Application {
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
   }
 
+  /**
+   * Setup application routes
+   * Main API routes:
+   * - /api/auth - Authentication endpoints
+   * - /api/employees - Employee management
+   * - /api/attendance - Attendance tracking
+   * - /api/movements - Movement tracking
+   * - /api/location - Location validation
+   * 
+   * Legacy/Alias routes for backward compatibility:
+   * - /api/validate-location
+   * - /api/clock-in
+   * - /api/clock-status
+   */
   setupRoutes() {
     // Health check endpoints
     const healthResponse = {
@@ -101,11 +127,21 @@ class Application {
     );
   }
 
+  /**
+   * Setup error handling middleware
+   * - 404 Not Found handler
+   * - Global error handler
+   */
   setupErrorHandling() {
     this.app.use(notFound);
     this.app.use(errorHandler);
   }
 
+  /**
+   * Start the application server
+   * - Connects to database
+   * - Starts Express server on configured port
+   */
   async start() {
     try {
       await connectDatabase();

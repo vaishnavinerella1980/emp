@@ -174,6 +174,17 @@ Authorization: Bearer <your_jwt_token>
 }
 ```
 
+### End Movement
+- **PATCH** `/api/movements/end/:id`
+- **Headers:** `Authorization: Bearer <token>`
+- **Body:**
+```json
+{
+  "to_latitude": 12.9720,
+  "to_longitude": 77.5950,
+  "actual_distance": 105,
+  "actual_time_taken": 6
+}
 ---
 
 ## 📍 Location Endpoints

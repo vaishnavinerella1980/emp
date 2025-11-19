@@ -146,10 +146,10 @@ class EmployeeRepository {
   async updatePassword(employeeId, hashedPassword) {
     try {
       console.log('Updating employee password:', employeeId);
-      
+
       const employee = await Employee.findOneAndUpdate(
         { id: employeeId },
-        { 
+        {
           $set: {
             password: hashedPassword,
             updated_at: new Date().toISOString()
@@ -170,6 +170,84 @@ class EmployeeRepository {
         throw error;
       }
       throw new ApiError(500, `Failed to update password: ${error.message}`);
+    }
+  }
+
+  async updateResetToken(employeeId, resetToken, resetTokenExpiry) {
+    try {
+      console.log('Updating employee reset token:', employeeId);
+
+      const employee = await Employee.findOneAndUpdate(
+        { id: employeeId },
+        {
+          $set: {
+            reset_token: resetToken,
+            reset_token_expiry: resetTokenExpiry,
+            updated_at: new Date().toISOString()
+          }
+        },
+        { new: true }
+      );
+
+      if (!employee) {
+        throw new ApiError(404, 'Employee not found');
+      }
+
+      console.log('Employee reset token updated successfully');
+      return employee;
+    } catch (error) {
+      console.error('Error updating employee reset token:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(500, `Failed to update reset token: ${error.message}`);
+    }
+  }
+
+  async findByResetToken(resetToken) {
+    try {
+      console.log('Finding employee by reset token');
+      const employee = await Employee.findOne({
+        reset_token: resetToken,
+        reset_token_expiry: { $gt: new Date() } // Token not expired
+      });
+      console.log('Employee found by reset token:', !!employee);
+      return employee;
+    } catch (error) {
+      console.error('Error finding employee by reset token:', error);
+      throw new ApiError(500, `Failed to find employee: ${error.message}`);
+    }
+  }
+
+  async updatePasswordAndClearResetToken(employeeId, hashedPassword) {
+    try {
+      console.log('Updating employee password and clearing reset token:', employeeId);
+
+      const employee = await Employee.findOneAndUpdate(
+        { id: employeeId },
+        {
+          $set: {
+            password: hashedPassword,
+            reset_token: null,
+            reset_token_expiry: null,
+            updated_at: new Date().toISOString()
+          }
+        },
+        { new: true }
+      );
+
+      if (!employee) {
+        throw new ApiError(404, 'Employee not found');
+      }
+
+      console.log('Employee password updated and reset token cleared successfully');
+      return employee;
+    } catch (error) {
+      console.error('Error updating employee password and clearing reset token:', error);
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      throw new ApiError(500, `Failed to update password and clear reset token: ${error.message}`);
     }
   }
 }

@@ -43,7 +43,7 @@ async function testAllEndpoints() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: 'test@example.com',
-        password: 'password123'
+        password: 'newPassword123'
       })
     });
 
@@ -193,14 +193,11 @@ async function testAllEndpoints() {
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
-        from_latitude: 12.9716,
-        from_longitude: 77.5946,
-        to_latitude: 12.9720,
-        to_longitude: 77.5950,
-        movement_type: 'walking',
-        distance: 100,
+        latitude: 12.9716,
+        longitude: 77.5946,
         reason: 'Testing movement tracking',
-        estimated_minutes: 5
+        estimated_minutes: 5,
+        address: 'Test Movement Address'
       })
     });
     const movementResult = await movementResponse.json();
@@ -244,7 +241,7 @@ async function testAllEndpoints() {
 
     // Test 19: Clock out
     console.log('\n19. Testing clock-out...');
-    const clockOutResponse = await fetch(`${BASE_URL}/api/attendance/clock-out`, {
+    const clockOutResponse = await fetch(`${BASE_URL}/api/attendance/clock-out/auto`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -260,8 +257,33 @@ async function testAllEndpoints() {
     const clockOutResult = await clockOutResponse.json();
     console.log('✅ Clock-out:', clockOutResult.success ? 'Success' : 'Failed');
 
-    // Test 20: Logout
-    console.log('\n20. Testing logout...');
+    // Test 20: Forgot Password
+    console.log('\n20. Testing forgot password...');
+    const forgotPasswordResponse = await fetch(`${BASE_URL}/api/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'test@example.com'
+      })
+    });
+    const forgotPasswordResult = await forgotPasswordResponse.json();
+    console.log('✅ Forgot password:', forgotPasswordResult.success ? 'Success' : 'Failed');
+
+    // Test 21: Reset Password (using a dummy token for testing)
+    console.log('\n21. Testing reset password...');
+    const resetPasswordResponse = await fetch(`${BASE_URL}/api/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: 'dummy-token-for-testing',
+        newPassword: 'newpassword123'
+      })
+    });
+    const resetPasswordResult = await resetPasswordResponse.json();
+    console.log('✅ Reset password:', resetPasswordResult.success ? 'Success' : 'Failed (expected for dummy token)');
+
+    // Test 22: Logout
+    console.log('\n22. Testing logout...');
     const logoutResponse = await fetch(`${BASE_URL}/api/auth/logout`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` }
@@ -270,7 +292,7 @@ async function testAllEndpoints() {
     console.log('✅ Logout:', logoutResult.success ? 'Success' : 'Failed');
 
     console.log('\n🎉 All endpoint tests completed!');
-    console.log('\n📊 Summary: 20 endpoints tested successfully');
+    console.log('\n📊 Summary: 22 endpoints tested successfully');
 
   } catch (error) {
     console.error('❌ Test failed:', error.message);

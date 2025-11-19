@@ -10,6 +10,7 @@ class MovementService {
     this.locationRepository = new LocationRepository();
   }
 
+  /** Create new movement record (start movement) */
   async createMovement(movementData) {
     const { employeeId, latitude, longitude, reason, estimated_minutes, address, timestamp } = movementData;
 
@@ -29,7 +30,7 @@ class MovementService {
 
     const record = await this.movementRepository.create(data);
 
-    // Also create a location update
+    // Log initial location
     const locationData = {
       id: generateId(),
       employee_id: employeeId,
@@ -40,45 +41,60 @@ class MovementService {
     };
 
     await this.locationRepository.create(locationData);
-
     return record.toObject();
   }
 
+  /** Update or complete movement */
   async updateMovement(movementId, employeeId, updateData) {
     const movement = await this.movementRepository.findById(movementId);
     
-    if (!movement) {
-      throw new ApiError(404, MESSAGES.MOVEMENT.NOT_FOUND);
-    }
+    if (!movement) throw new ApiError(404, MESSAGES.MOVEMENT.NOT_FOUND);
+    if (movement.employee_id !== employeeId) throw new ApiError(403, MESSAGES.AUTH.ACCESS_DENIED);
+    if (movement.status === 'completed') throw new ApiError(400, MESSAGES.MOVEMENT.ALREADY_COMPLETED);
 
-    if (movement.employee_id !== employeeId) {
-      throw new ApiError(403, MESSAGES.AUTH.ACCESS_DENIED);
-    }
-
-    if (movement.status === 'completed') {
-      throw new ApiError(400, MESSAGES.MOVEMENT.ALREADY_COMPLETED);
-    }
-
-    const allowedUpdates = ['return_time', 'status'];
+    const allowedUpdates = ['return_time', 'status', 'latitude', 'longitude', 'address'];
     const filteredData = {};
-    
+
     allowedUpdates.forEach(field => {
-      if (updateData[field] !== undefined) {
-        filteredData[field] = updateData[field];
-      }
+      if (updateData[field] !== undefined) filteredData[field] = updateData[field];
     });
 
-    // Calculate actual duration if completing movement
-    if (filteredData.return_time && filteredData.status === 'completed') {
+    // If completing movement, calculate duration and log final location
+    if (filteredData.return_time && (filteredData.status === 'completed' || filteredData.status === 'ended')) {
       const startTime = new Date(movement.timestamp);
       const endTime = new Date(filteredData.return_time);
       const durationMs = endTime - startTime;
       const durationMinutes = Math.floor(durationMs / (1000 * 60));
       filteredData.actual_duration_minutes = durationMinutes;
+
+      // Save final location to location table
+      if (updateData.latitude && updateData.longitude) {
+        await this.locationRepository.create({
+          id: generateId(),
+          employee_id: employeeId,
+          timestamp: endTime.toISOString(),
+          latitude: updateData.latitude,
+          longitude: updateData.longitude,
+          address: updateData.address || ''
+        });
+      }
     }
 
     const updatedMovement = await this.movementRepository.update(movementId, filteredData);
     return updatedMovement.toObject();
+  }
+
+  /** End (complete) movement explicitly — can be called from endMovement endpoint */
+  async endMovement(movementId, employeeId, { latitude, longitude, address }) {
+    const now = new Date();
+    const updateData = {
+      return_time: now.toISOString(),
+      status: 'completed',
+      latitude,
+      longitude,
+      address
+    };
+    return await this.updateMovement(movementId, employeeId, updateData);
   }
 
   async getMovementHistory(employeeId, options = {}) {
@@ -92,15 +108,8 @@ class MovementService {
 
   async getMovementById(movementId, employeeId) {
     const movement = await this.movementRepository.findById(movementId);
-    
-    if (!movement) {
-      throw new ApiError(404, MESSAGES.MOVEMENT.NOT_FOUND);
-    }
-
-    if (movement.employee_id !== employeeId) {
-      throw new ApiError(403, MESSAGES.AUTH.ACCESS_DENIED);
-    }
-
+    if (!movement) throw new ApiError(404, MESSAGES.MOVEMENT.NOT_FOUND);
+    if (movement.employee_id !== employeeId) throw new ApiError(403, MESSAGES.AUTH.ACCESS_DENIED);
     return movement.toObject();
   }
 }

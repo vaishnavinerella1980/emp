@@ -1,10 +1,12 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { JWT_SECRET, JWT_EXPIRES_IN } = require('../config/environment');
 const EmployeeRepository = require('../repositories/employeeRepository');
 const SessionRepository = require('../repositories/sessionsRepository');
 const { ApiError } = require('../middleware/errorHandler');
 const { generateId, hashPassword, comparePassword } = require('../utils/crypto');
 const { MESSAGES } = require('../constants/messages');
+const EmailService = require('./EmailServices');
 
 class AuthService {
   constructor() {
@@ -195,8 +197,84 @@ class AuthService {
     console.log('=== CHANGE PASSWORD DEBUG END ===');
   }
 
+  async forgotPassword(email) {
+    console.log('=== FORGOT PASSWORD DEBUG START ===');
+    console.log('Email:', email);
+
+    // Find employee
+    const employee = await this.employeeRepository.findByEmail(email);
+    console.log('Employee found:', !!employee);
+
+    if (!employee) {
+      // Don't reveal if email exists or not for security
+      console.log('Employee not found, but not revealing for security');
+      return { message: 'If an account with that email exists, a password reset link has been sent.' };
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    console.log('Generated reset token:', resetToken.substring(0, 10) + '...');
+    console.log('Token expiry:', resetTokenExpiry);
+
+    // Update employee with reset token
+    await this.employeeRepository.updateResetToken(employee.id, resetToken, resetTokenExpiry);
+    console.log('Reset token saved to database');
+
+    // Generate reset URL
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+
+    // Send email
+    try {
+      await EmailService.sendPasswordResetEmail(employee.email, resetUrl);
+      console.log('Password reset email sent successfully');
+    } catch (error) {
+      console.error('Failed to send password reset email:', error);
+      throw new ApiError(500, 'Failed to send password reset email');
+    }
+
+    console.log('=== FORGOT PASSWORD DEBUG END ===');
+    return { message: 'If an account with that email exists, a password reset link has been sent.' };
+  }
+
+  async resetPassword(token, newPassword) {
+    console.log('=== RESET PASSWORD DEBUG START ===');
+    console.log('Token length:', token.length);
+    console.log('New password length:', newPassword.length);
+
+    // Find employee by reset token
+    const employee = await this.employeeRepository.findByResetToken(token);
+    console.log('Employee found by token:', !!employee);
+
+    if (!employee) {
+      console.log('ERROR: Invalid or expired reset token');
+      throw new ApiError(400, 'Invalid or expired reset token');
+    }
+
+    // Check if token is expired
+    const now = new Date();
+    if (now > new Date(employee.reset_token_expiry)) {
+      console.log('ERROR: Reset token has expired');
+      throw new ApiError(400, 'Reset token has expired');
+    }
+
+    console.log('Token is valid and not expired');
+
+    // Hash new password
+    const hashedPassword = await hashPassword(newPassword);
+    console.log('New password hashed successfully');
+
+    // Update password and clear reset token
+    await this.employeeRepository.updatePasswordAndClearResetToken(employee.id, hashedPassword);
+    console.log('Password updated and reset token cleared');
+
+    console.log('=== RESET PASSWORD DEBUG END ===');
+    return { message: 'Password has been reset successfully' };
+  }
+
   sanitizeEmployee(employee) {
-    const { password, ...sanitized } = employee;
+    const { password, reset_token, reset_token_expiry, ...sanitized } = employee;
     return sanitized;
   }
 }
