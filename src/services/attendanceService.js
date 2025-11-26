@@ -22,7 +22,7 @@ class AttendanceService {
     // Check if employee already has an active attendance record
     const activeAttendance = await this.attendanceRepository.findActiveByEmployeeId(employeeId);
     if (activeAttendance) {
-      // Return the existing active attendance instead of throwing error
+      console.log('Employee already clocked in. Attendance ID:', activeAttendance.id);
       return {
         attendance: this.formatAttendanceResponse(activeAttendance),
         message: 'Employee is already clocked in',
@@ -32,7 +32,7 @@ class AttendanceService {
 
     // Create new attendance record
     const now = new Date();
-    const today = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const today = now.toISOString().split('T')[0];
 
     const attendanceData = {
       id: generateId(),
@@ -52,11 +52,22 @@ class AttendanceService {
       updated_at: now.toISOString()
     };
 
-    console.log('Creating attendance record:', attendanceData);
-
+    console.log('Creating attendance record...');
     const attendance = await this.attendanceRepository.create(attendanceData);
     
-    console.log('Attendance record created successfully');
+    // RECORD CLOCK-IN MOVEMENT
+    console.log('Recording clock-in movement...');
+    await this.recordMovement({
+      employeeId,
+      attendanceId: attendance.id,
+      latitude,
+      longitude, 
+      address,
+      reason: 'Clock-in',
+      movementType: 'CLOCK_IN_PATH'
+    });
+    
+    console.log('✅ Clock-in completed successfully');
     return this.formatAttendanceResponse(attendance);
   }
 
@@ -77,25 +88,74 @@ class AttendanceService {
     // Calculate total hours
     const clockInTime = new Date(attendance.clock_in_time);
     const clockOutTime = new Date();
-    const totalHours = (clockOutTime - clockInTime) / (1000 * 60 * 60); // Convert to hours
+    const totalHours = (clockOutTime - clockInTime) / (1000 * 60 * 60);
 
     // Update attendance record
     const updateData = {
       clock_out_time: clockOutTime.toISOString(),
       clock_out_location: `${latitude},${longitude}`,
       clock_out_address: address,
-      total_hours: Math.round(totalHours * 100) / 100, // Round to 2 decimal places
+      total_hours: Math.round(totalHours * 100) / 100,
       status: 'completed',
       is_active: false,
       updated_at: new Date().toISOString()
     };
 
-    console.log('Updating attendance with:', updateData);
-
+    console.log('Updating attendance record...');
     const updatedAttendance = await this.attendanceRepository.update(attendanceId, updateData);
     
-    console.log('Attendance record updated successfully');
+    // RECORD CLOCK-OUT MOVEMENT
+    console.log('Recording clock-out movement...');
+    await this.recordMovement({
+      employeeId: attendance.employee_id,
+      attendanceId: attendanceId,
+      latitude,
+      longitude,
+      address,
+      reason: 'Clock-out',
+      movementType: 'CLOCK_IN_PATH'
+    });
+    
+    console.log('✅ Clock-out completed successfully');
     return this.formatAttendanceResponse(updatedAttendance);
+  }
+
+  // Universal movement recording method
+  async recordMovement({ employeeId, attendanceId, latitude, longitude, address, reason, movementType = 'MANUAL_MOVEMENT' }) {
+    try {
+      console.log(`📍 Recording movement for employee ${employeeId}`);
+      
+      const Movement = require('../models/sequelize/Movement');
+      const { sequelize } = require('../config/database');
+      
+      const movementData = {
+        id: generateId(),
+        employee_id: employeeId,
+        timestamp: new Date().toISOString(),
+        latitude: latitude,
+        longitude: longitude,
+        reason: reason,
+        address: address || '',
+        status: 'active'
+      };
+
+      // Only add these fields if they exist in the table
+      try {
+        // Try to add attendance_id if column exists
+        movementData.attendance_id = attendanceId;
+        movementData.movement_type = movementType;
+      } catch (error) {
+        console.log('Optional movement fields not available');
+      }
+
+      const movement = await Movement.create(movementData);
+      console.log(`✅ Movement recorded: ${reason} at ${latitude}, ${longitude}`);
+      return movement;
+      
+    } catch (error) {
+      console.error('❌ Error recording movement:', error.message);
+      // Don't throw error - movement recording shouldn't break clock in/out
+    }
   }
 
   async getCurrentAttendance(employeeId) {
@@ -118,26 +178,19 @@ class AttendanceService {
     console.log('Employee ID:', employeeId);
     console.log('Date range:', { startDate, endDate });
 
-    // Build query filters
     const filters = { employee_id: employeeId };
     
     if (startDate || endDate) {
       filters.date = {};
-      if (startDate) {
-        filters.date.$gte = startDate.toISOString().split('T')[0];
-      }
-      if (endDate) {
-        filters.date.$lte = endDate.toISOString().split('T')[0];
-      }
+      if (startDate) filters.date.$gte = startDate.toISOString().split('T')[0];
+      if (endDate) filters.date.$lte = endDate.toISOString().split('T')[0];
     }
 
     const result = await this.attendanceRepository.findWithPagination(filters, {
       page,
       limit,
-      sort: { created_at: -1 } // Most recent first
+      sort: { created_at: -1 }
     });
-
-    console.log('Found attendance records:', result.data?.length || 0);
 
     return {
       attendance: result.data?.map(record => this.formatAttendanceResponse(record)) || [],
@@ -147,9 +200,7 @@ class AttendanceService {
 
   formatAttendanceResponse(attendance) {
     if (!attendance) return null;
-
-    // Convert to plain object if it's a mongoose document
-    const plainAttendance = attendance.toObject ? attendance.toObject() : attendance;
+    const plainAttendance = attendance.get ? attendance.get({ plain: true }) : attendance;
 
     return {
       id: plainAttendance.id,

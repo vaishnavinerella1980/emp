@@ -1,50 +1,83 @@
-const LocationUpdate = require('../models/LocationUpdates');
+const Location = require('../models/sequelize/Location');
+const { Op } = require('sequelize');
 
 class LocationRepository {
   async create(locationData) {
-    const record = new LocationUpdate(locationData);
-    return await record.save();
+    try {
+      const record = await Location.create(locationData);
+      return record;
+    } catch (error) {
+      console.error('Error creating location record:', error);
+      throw error;
+    }
   }
 
   async findByEmployeeId(employeeId, options = {}) {
-    const { page = 1, limit = 100, startDate, endDate } = options;
-    const skip = (page - 1) * limit;
-    
-    let filters = { employee_id: employeeId };
-    
-    if (startDate && endDate) {
-      filters.timestamp = {
-        $gte: startDate,
-        $lte: endDate
-      };
-    }
-    
-    const total = await LocationUpdate.countDocuments(filters);
-    const updates = await LocationUpdate.find(filters)
-      .sort({ timestamp: -1 })
-      .skip(skip)
-      .limit(limit);
+    try {
+      const { page = 1, limit = 100, startDate, endDate } = options;
+      const offset = (page - 1) * limit;
+      
+      let whereClause = { employee_id: employeeId };
+      
+      if (startDate && endDate) {
+        whereClause.timestamp = {
+          [Op.between]: [startDate, endDate]
+        };
+      }
+      
+      const { count, rows: updates } = await Location.findAndCountAll({
+        where: whereClause,
+        order: [['timestamp', 'DESC']],
+        offset: offset,
+        limit: limit
+      });
 
-    return { updates, total, page, limit };
+      return { updates, total: count, page, limit };
+    } catch (error) {
+      console.error('Error finding locations by employee ID:', error);
+      throw error;
+    }
   }
 
   async findLatestLocation(employeeId) {
-    return await LocationUpdate.findOne({
-      employee_id: employeeId
-    }).sort({ timestamp: -1 });
+    try {
+      return await Location.findOne({
+        where: { employee_id: employeeId },
+        order: [['timestamp', 'DESC']]
+      });
+    } catch (error) {
+      console.error('Error finding latest location:', error);
+      throw error;
+    }
   }
 
   async cleanupOldRecords(employeeId, maxRecords = 1000) {
-    const total = await LocationUpdate.countDocuments({ employee_id: employeeId });
-    
-    if (total > maxRecords) {
-      const oldestRecords = await LocationUpdate.find({ employee_id: employeeId })
-        .sort({ timestamp: 1 })
-        .limit(total - maxRecords)
-        .select('_id');
+    try {
+      const total = await Location.count({
+        where: { employee_id: employeeId }
+      });
       
-      const idsToDelete = oldestRecords.map(record => record._id);
-      await LocationUpdate.deleteMany({ _id: { $in: idsToDelete } });
+      if (total > maxRecords) {
+        const recordsToDelete = total - maxRecords;
+        
+        // Find oldest records to delete
+        const oldestRecords = await Location.findAll({
+          where: { employee_id: employeeId },
+          order: [['timestamp', 'ASC']],
+          limit: recordsToDelete,
+          attributes: ['id']
+        });
+        
+        const idsToDelete = oldestRecords.map(record => record.id);
+        await Location.destroy({
+          where: { id: idsToDelete }
+        });
+        
+        console.log(`Cleaned up ${idsToDelete.length} old location records`);
+      }
+    } catch (error) {
+      console.error('Error cleaning up old location records:', error);
+      throw error;
     }
   }
 }

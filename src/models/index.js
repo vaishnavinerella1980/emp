@@ -1,13 +1,16 @@
-const Employee = require('./Employee');
-const AttendanceRecord = require('./AttendanceRecord');
-const MovementRecord = require('./MovementRecord');
-const LocationUpdate = require('./LocationUpdate');
-const Session = require('./Session');
+// Export all Sequelize models
+const { 
+  Employee, 
+  Attendance, 
+  Movement, 
+  Location, 
+  Session 
+} = require('./sequelize');
 
 module.exports = {
   Employee,
-  AttendanceRecord,
-  MovementRecord,
-  LocationUpdate,
+  Attendance, 
+  Movement,
+  Location,
   Session
 };
