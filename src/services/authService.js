@@ -72,7 +72,7 @@ class AuthService {
     console.log('Registered employee data:', employeeData); // Log the employee data
     console.log('=== REGISTRATION DEBUG END ===');
     
-    return this.sanitizeEmployee(employee.toObject());
+    return this.sanitizeEmployee(employee.get()({ plain: true }));
   }
 
   async login(email, password) {
@@ -137,7 +137,7 @@ class AuthService {
 
     return {
       token,
-      employee: this.sanitizeEmployee(employee.toObject())
+      employee: this.sanitizeEmployee(employee.get({ plain: true }))
     };
   }
 

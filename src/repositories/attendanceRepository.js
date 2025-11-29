@@ -1,17 +1,18 @@
-const Attendance = require('../models/AttendanceRecord');
+const Attendance = require('../models/sequelize/attendance');
 const { ApiError } = require('../middleware/errorHandler');
+const { Op } = require('sequelize');
 
 class AttendanceRepository {
   async create(attendanceData) {
     try {
-      console.log('Creating attendance record in database...');
-      const attendance = new Attendance(attendanceData);
-      const savedAttendance = await attendance.save();
+      console.log('Creating attendance record in PostgreSQL...');
+      const attendance = await Attendance.create(attendanceData);
       console.log('Attendance record saved successfully');
-      return savedAttendance;
+      return attendance;
+
     } catch (error) {
       console.error('Error creating attendance record:', error);
-      if (error.code === 11000) {
+      if (error.name === 'SequelizeUniqueConstraintError') {
         throw new ApiError(409, 'Duplicate attendance record');
       }
       throw new ApiError(500, `Failed to create attendance record: ${error.message}`);
@@ -21,9 +22,12 @@ class AttendanceRepository {
   async findById(attendanceId) {
     try {
       console.log('Finding attendance by ID:', attendanceId);
-      const attendance = await Attendance.findOne({ id: attendanceId });
+      const attendance = await Attendance.findOne({ 
+        where: { id: attendanceId } 
+      });
       console.log('Attendance found:', !!attendance);
       return attendance;
+
     } catch (error) {
       console.error('Error finding attendance by ID:', error);
       throw new ApiError(500, `Failed to find attendance: ${error.message}`);
@@ -34,13 +38,17 @@ class AttendanceRepository {
     try {
       console.log('Finding active attendance for employee:', employeeId);
       const attendance = await Attendance.findOne({
-        employee_id: employeeId,
-        is_active: true,
-        status: 'active'
-      }).sort({ created_at: -1 });
+        where: {
+          employee_id: employeeId,
+          is_active: true,
+          status: 'active'
+        },
+        order: [['created_at', 'DESC']]
+      });
       
       console.log('Active attendance found:', !!attendance);
       return attendance;
+
     } catch (error) {
       console.error('Error finding active attendance:', error);
       throw new ApiError(500, `Failed to find active attendance: ${error.message}`);
@@ -50,10 +58,16 @@ class AttendanceRepository {
   async findByEmployeeId(employeeId, filters = {}) {
     try {
       console.log('Finding attendance records for employee:', employeeId);
-      const query = { employee_id: employeeId, ...filters };
-      const attendanceRecords = await Attendance.find(query).sort({ created_at: -1 });
+      const whereClause = { employee_id: employeeId, ...filters };
+      
+      const attendanceRecords = await Attendance.findAll({
+        where: whereClause,
+        order: [['created_at', 'DESC']]
+      });
+      
       console.log('Found attendance records:', attendanceRecords.length);
       return attendanceRecords;
+
     } catch (error) {
       console.error('Error finding attendance records:', error);
       throw new ApiError(500, `Failed to find attendance records: ${error.message}`);
@@ -65,32 +79,31 @@ class AttendanceRepository {
       const {
         page = 1,
         limit = 50,
-        sort = { created_at: -1 }
+        sort = [['created_at', 'DESC']]
       } = options;
 
-      const skip = (page - 1) * limit;
+      const offset = (page - 1) * limit;
 
       console.log('Finding attendance with pagination:', {
         filters,
         page,
         limit,
-        skip
+        offset
       });
 
-      const [data, total] = await Promise.all([
-        Attendance.find(filters)
-          .sort(sort)
-          .skip(skip)
-          .limit(limit),
-        Attendance.countDocuments(filters)
-      ]);
+      const { count, rows: data } = await Attendance.findAndCountAll({
+        where: filters,
+        order: sort,
+        offset: offset,
+        limit: limit
+      });
 
-      const totalPages = Math.ceil(total / limit);
+      const totalPages = Math.ceil(count / limit);
       const hasNextPage = page < totalPages;
       const hasPrevPage = page > 1;
 
       console.log('Pagination results:', {
-        total,
+        total: count,
         totalPages,
         currentPage: page,
         recordsCount: data.length
@@ -101,12 +114,13 @@ class AttendanceRepository {
         pagination: {
           current_page: page,
           total_pages: totalPages,
-          total_records: total,
+          total_records: count,
           records_per_page: limit,
           has_next_page: hasNextPage,
           has_prev_page: hasPrevPage
         }
       };
+
     } catch (error) {
       console.error('Error in findWithPagination:', error);
       throw new ApiError(500, `Failed to find attendance records: ${error.message}`);
@@ -118,18 +132,21 @@ class AttendanceRepository {
       console.log('Updating attendance record:', attendanceId);
       console.log('Update data:', updateData);
 
-      const attendance = await Attendance.findOneAndUpdate(
-        { id: attendanceId },
-        { $set: updateData },
-        { new: true, runValidators: true }
+      const [affectedCount, updatedAttendances] = await Attendance.update(
+        updateData,
+        {
+          where: { id: attendanceId },
+          returning: true
+        }
       );
 
-      if (!attendance) {
+      if (affectedCount === 0) {
         throw new ApiError(404, 'Attendance record not found');
       }
 
       console.log('Attendance record updated successfully');
-      return attendance;
+      return updatedAttendances[0];
+
     } catch (error) {
       console.error('Error updating attendance record:', error);
       if (error instanceof ApiError) {
@@ -142,14 +159,17 @@ class AttendanceRepository {
   async delete(attendanceId) {
     try {
       console.log('Deleting attendance record:', attendanceId);
-      const result = await Attendance.deleteOne({ id: attendanceId });
+      const affectedCount = await Attendance.destroy({
+        where: { id: attendanceId }
+      });
       
-      if (result.deletedCount === 0) {
+      if (affectedCount === 0) {
         throw new ApiError(404, 'Attendance record not found');
       }
 
       console.log('Attendance record deleted successfully');
       return true;
+
     } catch (error) {
       console.error('Error deleting attendance record:', error);
       if (error instanceof ApiError) {
@@ -163,28 +183,26 @@ class AttendanceRepository {
     try {
       console.log('Getting attendance stats for employee:', employeeId);
       
-      const matchStage = { 
+      const whereClause = { 
         employee_id: employeeId,
         status: 'completed'
       };
 
       if (startDate || endDate) {
-        matchStage.date = {};
-        if (startDate) matchStage.date.$gte = startDate;
-        if (endDate) matchStage.date.$lte = endDate;
+        whereClause.date = {};
+        if (startDate) whereClause.date[Op.gte] = startDate;
+        if (endDate) whereClause.date[Op.lte] = endDate;
       }
 
-      const stats = await Attendance.aggregate([
-        { $match: matchStage },
-        {
-          $group: {
-            _id: null,
-            total_days: { $sum: 1 },
-            total_hours: { $sum: '$total_hours' },
-            average_hours: { $avg: '$total_hours' }
-          }
-        }
-      ]);
+      const stats = await Attendance.findAll({
+        where: whereClause,
+        attributes: [
+          [sequelize.fn('COUNT', sequelize.col('id')), 'total_days'],
+          [sequelize.fn('SUM', sequelize.col('total_hours')), 'total_hours'],
+          [sequelize.fn('AVG', sequelize.col('total_hours')), 'average_hours']
+        ],
+        raw: true
+      });
 
       const result = stats[0] || {
         total_days: 0,
@@ -194,6 +212,7 @@ class AttendanceRepository {
 
       console.log('Attendance stats:', result);
       return result;
+
     } catch (error) {
       console.error('Error getting attendance stats:', error);
       throw new ApiError(500, `Failed to get attendance stats: ${error.message}`);

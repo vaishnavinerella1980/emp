@@ -41,7 +41,7 @@ class MovementService {
     };
 
     await this.locationRepository.create(locationData);
-    return record.toObject();
+    return record.get({ plain: true });
   }
 
   /** Update or complete movement */
@@ -81,7 +81,7 @@ class MovementService {
     }
 
     const updatedMovement = await this.movementRepository.update(movementId, filteredData);
-    return updatedMovement.toObject();
+    return updatedMovement.get({ plain: true });
   }
 
   /** End (complete) movement explicitly — can be called from endMovement endpoint */
@@ -103,14 +103,14 @@ class MovementService {
 
   async getActiveMovements(employeeId) {
     const movements = await this.movementRepository.findActiveMovements(employeeId);
-    return movements.map(m => m.toObject());
+    return movements.map(m => m.get({ plain: true }));
   }
 
   async getMovementById(movementId, employeeId) {
     const movement = await this.movementRepository.findById(movementId);
     if (!movement) throw new ApiError(404, MESSAGES.MOVEMENT.NOT_FOUND);
     if (movement.employee_id !== employeeId) throw new ApiError(403, MESSAGES.AUTH.ACCESS_DENIED);
-    return movement.toObject();
+    return movement.get({ plain: true });
   }
 }
 

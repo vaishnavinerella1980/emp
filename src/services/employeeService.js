@@ -13,7 +13,7 @@ class EmployeeService {
     if (!employee) {
       throw new ApiError(404, MESSAGES.EMPLOYEE.NOT_FOUND);
     }
-    return this.sanitizeEmployee(employee.toObject());
+    return this.sanitizeEmployee(employee.get({ plain: true }));
   }
 
   async updateEmployee(id, updateData) {
@@ -32,7 +32,7 @@ class EmployeeService {
     });
 
     const updatedEmployee = await this.employeeRepository.update(id, filteredData);
-    return this.sanitizeEmployee(updatedEmployee.toObject());
+    return this.sanitizeEmployee(updatedEmployee.get({ plain: true }));
   }
 
   async changePassword(id, currentPassword, newPassword) {
@@ -54,7 +54,7 @@ class EmployeeService {
   async getAllEmployees(options = {}) {
     const result = await this.employeeRepository.findAll({}, options);
     return {
-      data: result.data.map(emp => this.sanitizeEmployee(emp.toObject())),
+      data: result.data.map(emp => this.sanitizeEmployee(emp.get({ plain: true }))),
       pagination: result.pagination
     };
   }

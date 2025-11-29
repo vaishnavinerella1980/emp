@@ -1,14 +1,14 @@
-const Session = require('../models/Session');
+const Session = require('../models/sequelize/Session');
 const { ApiError } = require('../middleware/errorHandler');
+const { Op } = require('sequelize');
 
 class SessionRepository {
   async create(sessionData) {
     try {
-      console.log('Creating session in database...');
-      const session = new Session(sessionData);
-      const savedSession = await session.save();
+      console.log('Creating session in PostgreSQL...');
+      const session = await Session.create(sessionData);
       console.log('Session saved successfully');
-      return savedSession;
+      return session;
     } catch (error) {
       console.error('Error creating session:', error);
       throw new ApiError(500, `Failed to create session: ${error.message}`);
@@ -18,7 +18,9 @@ class SessionRepository {
   async findByToken(token) {
     try {
       console.log('Finding session by token');
-      const session = await Session.findOne({ token });
+      const session = await Session.findOne({ 
+        where: { token } 
+      });
       console.log('Session found by token:', !!session);
       return session;
     } catch (error) {
@@ -30,8 +32,10 @@ class SessionRepository {
   async findByEmployeeId(employeeId) {
     try {
       console.log('Finding sessions for employee:', employeeId);
-      const sessions = await Session.find({ employee_id: employeeId })
-        .sort({ created_at: -1 });
+      const sessions = await Session.findAll({
+        where: { employee_id: employeeId },
+        order: [['created_at', 'DESC']]
+      });
       console.log('Sessions found:', sessions.length);
       return sessions;
     } catch (error) {
@@ -43,9 +47,11 @@ class SessionRepository {
   async deleteByToken(token) {
     try {
       console.log('Deleting session by token');
-      const result = await Session.deleteOne({ token });
-      console.log('Session deletion result:', result.deletedCount > 0);
-      return result.deletedCount > 0;
+      const affectedCount = await Session.destroy({
+        where: { token }
+      });
+      console.log('Session deletion result:', affectedCount > 0);
+      return affectedCount > 0;
     } catch (error) {
       console.error('Error deleting session:', error);
       throw new ApiError(500, `Failed to delete session: ${error.message}`);
@@ -55,12 +61,14 @@ class SessionRepository {
   async deleteExpiredSessions() {
     try {
       console.log('Deleting expired sessions...');
-      const now = new Date().toISOString();
-      const result = await Session.deleteMany({
-        expires_at: { $lt: now }
+      const now = new Date();
+      const affectedCount = await Session.destroy({
+        where: {
+          expires_at: { [Op.lt]: now }
+        }
       });
-      console.log('Expired sessions deleted:', result.deletedCount);
-      return result.deletedCount;
+      console.log('Expired sessions deleted:', affectedCount);
+      return affectedCount;
     } catch (error) {
       console.error('Error deleting expired sessions:', error);
       throw new ApiError(500, `Failed to delete expired sessions: ${error.message}`);
@@ -70,9 +78,11 @@ class SessionRepository {
   async deleteAllByEmployeeId(employeeId) {
     try {
       console.log('Deleting all sessions for employee:', employeeId);
-      const result = await Session.deleteMany({ employee_id: employeeId });
-      console.log('Sessions deleted for employee:', result.deletedCount);
-      return result.deletedCount;
+      const affectedCount = await Session.destroy({
+        where: { employee_id: employeeId }
+      });
+      console.log('Sessions deleted for employee:', affectedCount);
+      return affectedCount;
     } catch (error) {
       console.error('Error deleting employee sessions:', error);
       throw new ApiError(500, `Failed to delete employee sessions: ${error.message}`);

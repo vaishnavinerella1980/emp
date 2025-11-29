@@ -21,7 +21,30 @@ module.exports = {
     CANCELLED: 'cancelled'
   },
 
-  // Validation rules for input validation
+  // NEW: Movement types
+  MOVEMENT_TYPES: {
+    CLOCK_IN_PATH: 'CLOCK_IN_PATH',
+    MANUAL_MOVEMENT: 'MANUAL_MOVEMENT'
+  },
+
+  // NEW: Office names
+  OFFICES: {
+    ACS: 'ACS',
+    IOTIQ: 'IOTIQ'
+  },
+
+  // NEW: Departments
+  DEPARTMENTS: {
+    IT: 'IT',
+    HR: 'HR',
+    FINANCE: 'Finance',
+    MARKETING: 'Marketing',
+    SALES: 'Sales',
+    OPERATIONS: 'Operations',
+    GENERAL: 'General'
+  },
+
+  // Validation rules
   VALIDATION_RULES: {
     PASSWORD_MIN_LENGTH: 6,
     PASSWORD_MAX_LENGTH: 128,
@@ -44,14 +67,11 @@ module.exports = {
 
   // Location related constants
   LOCATION: {
-    // Maximum accuracy in meters for location updates
     MAX_ACCURACY: 100,
-    // Maximum age of location update in minutes
     MAX_LOCATION_AGE_MINUTES: 10,
-    // Maximum number of location records per employee
     MAX_LOCATION_RECORDS: 1000,
-    // Earth's radius in meters for distance calculations
-    EARTH_RADIUS_METERS: 6371000
+    EARTH_RADIUS_METERS: 6371000,
+    OFFICE_DETECTION_RADIUS: 100 // meters
   },
 
   // Time related constants

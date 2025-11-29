@@ -15,6 +15,7 @@ const employeeRoutes = require('./routes/employeeRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const movementRoutes = require('./routes/movementRoutes');
 const locationRoutes = require('./routes/locationRoutes');
+const exportRoutes = require('./routes/exportRoutes');
 
 /**
  * Main Application Class
