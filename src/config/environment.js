@@ -6,7 +6,7 @@ module.exports = {
   PORT: process.env.PORT || 3000,
   
   // Database
-  DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/employee_tracking',
+  DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:vaishnavi2025@localhost:5432/employee_tracking',
   
   // JWT
   JWT_SECRET: process.env.JWT_SECRET || 'your-super-secret-key-change-in-production',

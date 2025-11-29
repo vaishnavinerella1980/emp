@@ -3,7 +3,7 @@ require('dotenv').config();
 
 class PostgreSQLDatabase {
   constructor() {
-    const databaseUrl = 'postgresql://postgres:postgres@localhost:5432/employee_tracking';
+    const databaseUrl = 'postgresql://postgres:vaishnavi2025@localhost:5432/employee_tracking';
     
     this.sequelize = new Sequelize(databaseUrl, {
       dialect: 'postgres',
