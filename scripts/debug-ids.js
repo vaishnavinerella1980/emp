@@ -1,39 +1,42 @@
-const mongoose = require('mongoose');
 const { sequelize } = require('../src/config/database');
 const Employee = require('../src/models/sequelize/Employee');
 
-const MONGODB_URI = 'mongodb+srv://vaishnavi:vaishnavi2002@cluster0.q29h1tu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
-
-const EmployeeSchema = new mongoose.Schema({}, { strict: false });
-const MongoEmployee = mongoose.model('Employee', EmployeeSchema);
-
-async function debugIDs() {
+async function debugPostgreSQLData() {
   try {
-    await mongoose.connect(MONGODB_URI);
+    console.log('🔍 DEBUGGING POSTGRESQL DATA:\n');
+
+    // Connect to PostgreSQL
     await sequelize.authenticate();
+    console.log('✅ PostgreSQL connected\n');
 
-    console.log('🔍 DEBUGGING ID MISMATCH:\n');
-
-    // Get MongoDB employees
-    const mongoEmployees = await MongoEmployee.find({});
-    console.log('MongoDB Employees:');
-    mongoEmployees.forEach(emp => {
-      console.log(`  ID: ${emp.id}, Name: ${emp.name}, Email: ${emp.email}`);
-    });
-
-    console.log('\nPostgreSQL Employees:');
+    // Get PostgreSQL employees
     const pgEmployees = await Employee.findAll();
+    console.log('PostgreSQL Employees:');
     pgEmployees.forEach(emp => {
       console.log(`  ID: ${emp.id}, Name: ${emp.name}, Email: ${emp.email}`);
     });
 
+    // Additional debugging info
+    console.log(`\n📊 Total Employees: ${pgEmployees.length}`);
+
+    if (pgEmployees.length > 0) {
+      console.log('\n📋 Sample Employee Details:');
+      pgEmployees.slice(0, 3).forEach(emp => {
+        console.log(`   - ID: ${emp.id}`);
+        console.log(`     Name: ${emp.name}`);
+        console.log(`     Email: ${emp.email}`);
+        console.log(`     Created: ${emp.created_at}`);
+        console.log(`     Updated: ${emp.updated_at}\n`);
+      });
+    }
+
   } catch (error) {
-    console.error('Error:', error);
+    console.error('❌ Error:', error);
   } finally {
-    await mongoose.disconnect();
     await sequelize.close();
+    console.log('\n🔌 PostgreSQL connection closed');
     process.exit(0);
   }
 }
 
-debugIDs();
+debugPostgreSQLData();

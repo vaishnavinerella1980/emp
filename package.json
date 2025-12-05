@@ -26,7 +26,7 @@
     "api",
     "node.js",
     "express",
-    "mongodb"
+    "postgresql"
   ],
   "author": "Your Name",
   "license": "MIT",
@@ -41,7 +41,6 @@
     "express-validator": "^7.2.1",
     "helmet": "^7.0.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^9.0.0",
     "morgan": "^1.10.0",
     "node-fetch": "^2.7.0",
     "nodemailer": "^7.0.9",

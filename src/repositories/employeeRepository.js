@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const Employee = require('../models/sequelize/Employee');
+const { Employee } = require('../models');
 const { ApiError } = require('../middleware/errorHandler');
 
 class EmployeeRepository {

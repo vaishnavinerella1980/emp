@@ -1,40 +1,21 @@
 const { Sequelize } = require('sequelize');
-const config = require('../config/database');
+const postgres = require('../config/postgres');
 
-const env = process.env.NODE_ENV || 'development';
-const dbConfig = config[env];
-
-const sequelize = new Sequelize(
-  dbConfig.database,
-  dbConfig.username,
-  dbConfig.password,
-  {
-    host: dbConfig.host,
-    port: dbConfig.port,
-    dialect: dbConfig.dialect,
-    logging: dbConfig.logging,
-    pool: {
-      max: 5,
-      min: 0,
-      acquire: 30000,
-      idle: 10000
-    }
-  }
-);
+const sequelize = postgres.getSequelize();
 
 const db = {};
 
 db.Sequelize = Sequelize;
 db.sequelize = sequelize;
 
-// Import models
-db.Attendance = require('./Attendance')(sequelize, Sequelize.DataTypes);
-db.Employee = require('./Employee')(sequelize, Sequelize.DataTypes);
-db.Movement = require('./Movement')(sequelize, Sequelize.DataTypes);
-db.Location = require('./Location')(sequelize, Sequelize.DataTypes);
-db.OfficeLocation = require('./OfficeLocation')(sequelize, Sequelize.DataTypes);
-db.Session = require('./Session')(sequelize, Sequelize.DataTypes);
-db.TimingReport = require('./TimingReport')(sequelize, Sequelize.DataTypes);
+// Import models from sequelize subdirectory
+db.Attendance = require('./sequelize/attendance');
+db.Employee = require('./sequelize/Employee');
+db.Movement = require('./sequelize/Movement');
+db.Location = require('./sequelize/Location');
+db.OfficeLocation = require('./sequelize/OfficeLocation');
+db.Session = require('./sequelize/Session');
+db.TimingReport = require('./sequelize/TimingReport');
 
 // Associations can be defined here if needed
 

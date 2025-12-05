@@ -37,9 +37,9 @@ class PostgreSQLDatabase {
       require('../models/sequelize/Location');
       require('../models/sequelize/Session');
 
-      // Sync with alter to update tables
+      // Sync without altering tables (to avoid conflicts with views)
       console.log('🔄 Syncing database...');
-      await this.sequelize.sync({ alter: true });
+      await this.sequelize.sync({ alter: false });
       console.log('✅ Database synced');
 
       // Add demo users
