@@ -3,7 +3,7 @@ require('dotenv').config();
 module.exports = {
   // Server
   NODE_ENV: process.env.NODE_ENV || 'development',
-  PORT: process.env.PORT || 3000,
+  PORT: process.env.PORT || 5000,
   
   // Database
   DATABASE_URL: process.env.DATABASE_URL || 'postgresql://postgres:vaishnavi2025@localhost:5432/employee_tracking',
